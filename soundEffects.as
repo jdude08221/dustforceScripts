@@ -108,7 +108,7 @@ class soundEffect: trigger_base, callback_base {
   [slider,min:0,max:100] float volume;
   [slider,min:0,max:10] float fadeTime; // in seconds
   [text]bool showRadius;
-  [option,1:windOutside,2:windCave,3:ice]int sfx;
+  [option,1:amb1,2:amb2,3:amb3]int sfx;
   
   soundEffect() {
     sfx = 1;
