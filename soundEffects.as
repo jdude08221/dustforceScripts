@@ -1,17 +1,18 @@
 const string EMBED_sound1 = "sound1.ogg"; 
 const string EMBED_sound2 = "sound2.ogg";
 const string EMBED_sound3 = "sound3.ogg";
-const string EMBED_sound4 = "music.ogg"; // this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
-                                         // @musicHandle = g.play_script_stream(EMBED_sound4.split(".")[0], 2, 0, 0, true, musicVolume/100);
-const string EMBED_sound5 = "sound4.ogg";
-const string EMBED_sound6 = "sound5.ogg";
-const string EMBED_sound7 = "sound6.ogg";
-const string EMBED_sound8 = "sound7.ogg";
-const string EMBED_sound9 = "sound8.ogg";
-const string EMBED_sound10 = "sound9.ogg";
+const string EMBED_sound4 = "sound4.ogg";
+const string EMBED_sound5 = "sound5.ogg";
+const string EMBED_sound6 = "sound6.ogg";
+const string EMBED_sound7 = "sound7.ogg";
+const string EMBED_sound8 = "sound8.ogg";
+const string EMBED_sound9 = "sound9.ogg"; 
+const string EMBED_sound10 = "music.ogg";// this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
+                                         // @musicHandle = g.play_script_stream(EMBED_sound10.split(".")[0], 2, 0, 0, true, musicVolume/100);
+                                         // Or just set the volume to 0 in the script in the script editor UI
 const uint WHITE = 4294967295;
 
-const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds
+const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds - 1 (music)
 const int MAX_PLAYERS = 4;
 // Put audio files in ...\common\Dustforce\user\embed_src
   
@@ -76,7 +77,9 @@ class script : callback_base {
   }
  
   void on_level_start() {
-     @musicHandle = g.play_script_stream(EMBED_sound4.split(".")[0], 2, 0, 0, true, musicVolume/100);
+     @audioHandles[NUM_SOUNDS-1] = g.play_script_stream(EMBED_sound10.split(".")[0], 2, 0, 0, true, musicVolume/100);
+     volume[NUM_SOUNDS - 1] = musicVolume/100;
+     fadeTime[NUM_SOUNDS - 1] = 0;
   }
   
   void build_sounds(message@ msg) {
@@ -89,7 +92,7 @@ class script : callback_base {
     msg.set_string(EMBED_sound7.split(".")[0], "sound7");
     msg.set_string(EMBED_sound8.split(".")[0], "sound8");
     msg.set_string(EMBED_sound9.split(".")[0], "sound9");
-    msg.set_string(EMBED_sound10.split(".")[0], "sound10");
+    msg.set_string(EMBED_sound10.split(".")[0], "sound10"); //music
   }
    
   void step(int entities) {
@@ -97,15 +100,14 @@ class script : callback_base {
     // if volume was changed, start fading audio tracks
     if(volumeChanged) {
       float volChange = 0;
-
       // go through all sounds and apply fades.  If a sound isn't supposed to fade, fadeTime[i] will be 0, and nothing will be applied to it.
-      for(int i = 0; i < NUM_SOUNDS - 1; i++) {
+      for(int i = 0; i < NUM_SOUNDS; i++) {
         if(@audioHandles[i] != null) {
           if(fadeTime[i] > 0) {
             //Determine if we want to fade in or fade out audio.
             float sign = (audioHandles[i].volume() - volume[i]) > 0 ? -1 : 1;
             volChange = audioHandles[i].volume() + (sign/fadeTime[i]);
-          } else {
+            } else {
             volChange = volume[i];
           }
           audioHandles[i].volume(volChange);
@@ -115,10 +117,11 @@ class script : callback_base {
       //Determine if we want to stop fading
       bool stopFading = true;
       for(int i = 0; i < NUM_SOUNDS - 1; i++) {
+        // Stop fading if the current volume of the audio handle is within .01 of the requested volume change (its close enough to call it done)
         stopFading = stopFading && !(@audioHandles[i]!=null && !closeTo(audioHandles[i].volume(), volume[i], 0.01));
       }
       
-      // Check to see if we should stop fading audio in / out
+      // If no audio streams are currently fading, set volumeChanged to false and set all fade times to zero (will be set next time we find a trigger)
       if(stopFading){
         for(uint i = 0; i < fadeTime.size(); i++) {
           fadeTime[i]= 0;
@@ -143,7 +146,7 @@ class soundEffect: trigger_base, callback_base {
   [text]bool playOncePerActivation;
   [text]bool showRadius;
   
-  [option,1:sound1,2:sound2,3:sound3,4:sound4,5:sound5,6:sound6,7:sound7,8:sound8,9:sound9,10:sound10]int sfx;
+  [option,1:sound1,2:sound2,3:sound3,4:sound4,5:sound5,6:sound6,7:sound7,8:sound8,9:sound9,10:music]int sfx;
   [option,1:music,2:ambience,3:sfx] uint soundGroup;
     
   soundEffect() {
@@ -184,7 +187,6 @@ class soundEffect: trigger_base, callback_base {
   }
 
   void activate(controllable @e) {   
-
     if(e.player_index() == 0) {
         if(not activated) {
             rising_edge(@e);
@@ -192,21 +194,13 @@ class soundEffect: trigger_base, callback_base {
         }
         active_this_frame = true;
     }
-
-    if (@e.as_dustman() == null) {
-        return;
-    }
     // If we do want to constantly replay the sound while in the trigger
     if(!playOncePerActivation) {
-      message@ msg;
-      @msg = create_message(); 
-      msg.set_string('play', 'true');
-      msg.set_float('volume', volume/100);
-      msg.set_float('fadeTime', fadeTime);
-      msg.set_int('name', sfx);
-      msg.set_int('loop', loop?1:0);
-      msg.set_int('soundGroup',soundGroup);
-      broadcast_message('OnMyCustomEventName', msg);
+      //Check if it is a player before requesting to play the sound
+      if (@e.as_dustman() == null) {
+        return;
+      }
+      playSoundRequest();
     }
   }
 
@@ -214,19 +208,23 @@ class soundEffect: trigger_base, callback_base {
     @trigger_entity = @e;
     // If we don't want to constantly replay the sound while in the trigger
     if(playOncePerActivation) {
-      message@ msg;
-      @msg = create_message(); 
-      msg.set_string('play', 'true');
-      msg.set_float('volume', volume/100);
-      msg.set_float('fadeTime', fadeTime);
-      msg.set_int('name', sfx);
-      msg.set_int('loop', loop?1:0);
-      msg.set_int('soundGroup',soundGroup);
-      broadcast_message('OnMyCustomEventName', msg);
+      playSoundRequest();
     }
   }
 
   void falling_edge(controllable@ e) {
       @trigger_entity = null;
+  }
+
+  void playSoundRequest() {
+    message@ msg;
+    @msg = create_message(); 
+    msg.set_string('play', 'true');
+    msg.set_float('volume', volume/100);
+    msg.set_float('fadeTime', fadeTime);
+    msg.set_int('name', sfx);
+    msg.set_int('loop', loop?1:0);
+    msg.set_int('soundGroup',soundGroup);
+    broadcast_message('OnMyCustomEventName', msg);
   }
 }
