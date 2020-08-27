@@ -1,22 +1,30 @@
-const string EMBED_sound1 = "amb1.ogg"; 
-const string EMBED_sound2 = "amb2.ogg";
-const string EMBED_sound3 = "amb3ice.ogg";
-const string EMBED_sound4 = "music.ogg";
+const string EMBED_sound1 = "sound1.ogg"; 
+const string EMBED_sound2 = "sound2.ogg";
+const string EMBED_sound3 = "sound3.ogg";
+const string EMBED_sound4 = "music.ogg"; // this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
+                                         // @musicHandle = g.play_script_stream(EMBED_sound4.split(".")[0], 2, 0, 0, true, musicVolume/100);
+const string EMBED_sound5 = "sound4.ogg";
+const string EMBED_sound6 = "sound5.ogg";
+const string EMBED_sound7 = "sound6.ogg";
+const string EMBED_sound8 = "sound7.ogg";
+const string EMBED_sound9 = "sound8.ogg";
+const string EMBED_sound10 = "sound9.ogg";
 
+const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds
 const int MAX_PLAYERS = 4;
 // Put audio files in ...\common\Dustforce\user\embed_src
   
 class script : callback_base {
   scene@ g;
-  audio@ musicHandle; // Unused, and kept apart from ambience
+  audio@ musicHandle; // At the moment, this is unused.
   
   [slider,min:0,max:100] float musicVolume;
   
-  array<string> sounds(4);
-  array<bool> isFading(4);
-  array<int> fadeTime(4);
-  array<float> volume(4);
-  array<audio@> audioHandles(4);
+  array<string> sounds(NUM_SOUNDS);
+  array<bool> isFading(NUM_SOUNDS);
+  array<int> fadeTime(NUM_SOUNDS);
+  array<float> volume(NUM_SOUNDS);
+  array<audio@> audioHandles(NUM_SOUNDS);
   bool volumeChanged;
   
   script() { 
@@ -33,23 +41,31 @@ class script : callback_base {
     sounds[1] = EMBED_sound2.split(".")[0];
     sounds[2] = EMBED_sound3.split(".")[0];
     sounds[3] = EMBED_sound4.split(".")[0];
+    sounds[4] = EMBED_sound5.split(".")[0];
+    sounds[5] = EMBED_sound6.split(".")[0];
+    sounds[6] = EMBED_sound7.split(".")[0];
+    sounds[7] = EMBED_sound8.split(".")[0];
+    sounds[8] = EMBED_sound9.split(".")[0];
+    sounds[9] = EMBED_sound10.split(".")[0];
   }
   
   void OnMyCustomEventName(string id, message@ msg) {
     if(msg.get_string('play') == 'true') {   
       int selectedSound = msg.get_int('name')-1;    
       volume[selectedSound] = msg.get_float('volume');
+      uint soundGroup = msg.get_int('soundGroup');
+      bool loop = msg.get_int('loop') == 1;
       
-      if(audioHandles[selectedSound] == null ) {
+      // if no existing audio stream is playing the requested sound, play it
+      if(audioHandles[selectedSound] == null || !audioHandles[selectedSound].is_playing()) {
           @audioHandles[selectedSound] = 
-          g.play_script_stream(sounds[selectedSound], 2, 0, 0, true, volume[0] );
-      }        
-      // Check if another trigger for an already playing audio stream 
-      // wants to adjust the volume.  
+          g.play_script_stream(sounds[selectedSound], soundGroup, 0, 0, loop, volume[0] );
+      }
+
+      // Check if the last trigger which requested current audio clip has a notable difference in volume  
       volumeChanged = !closeTo(audioHandles[selectedSound].volume(), volume[selectedSound],0.01);
       
-      // If we found a significant volume difference, update fade time 
-      // array with most recent fade values for use in step()   
+      // If a notable difference of volume is found, we want to  
       if(volumeChanged){
         fadeTime[selectedSound] = 60 * msg.get_int('fadeTime');
       }
@@ -65,16 +81,25 @@ class script : callback_base {
     msg.set_string(EMBED_sound2.split(".")[0], "sound2");
     msg.set_string(EMBED_sound3.split(".")[0], "sound3");
     msg.set_string(EMBED_sound4.split(".")[0], "sound4");
+    msg.set_string(EMBED_sound5.split(".")[0], "sound5");
+    msg.set_string(EMBED_sound6.split(".")[0], "sound6");
+    msg.set_string(EMBED_sound7.split(".")[0], "sound7");
+    msg.set_string(EMBED_sound8.split(".")[0], "sound8");
+    msg.set_string(EMBED_sound9.split(".")[0], "sound9");
+    msg.set_string(EMBED_sound10.split(".")[0], "sound10");
   }
    
   void step(int entities) {
   
-    // Volume was changed, start fading audio tracks
+    // if volume was changed, start fading audio tracks
     if(volumeChanged) {
       float volChange = 0;
-      for(int i = 0; i < 3; i++) {
+
+      // go through all sounds and apply fades.  If a sound isn't supposed to fade, fadeTime[i] will be 0, and nothing will be applied to it.
+      for(int i = 0; i < NUM_SOUNDS - 1; i++) {
         if(audioHandles[i] != null) {
           if(fadeTime[i] > 0) {
+            //Determine if we want to fade in or fade out audio.
             float sign = (audioHandles[i].volume() - volume[i]) > 0 ? -1 : 1;
             volChange = audioHandles[i].volume() + (sign/fadeTime[i]);
           } else {
@@ -86,7 +111,7 @@ class script : callback_base {
       
       //Determine if we want to stop fading
       bool stopFading = true;
-      for(int i = 0; i < 3; i++) {
+      for(int i = 0; i < NUM_SOUNDS - 1; i++) {
         stopFading = stopFading && !(audioHandles[i]!=null && !closeTo(audioHandles[i].volume(), volume[i], 0.01));
       }
       
@@ -107,9 +132,11 @@ class soundEffect: trigger_base, callback_base {
 	scripttrigger @scr;
   [slider,min:0,max:100] float volume;
   [slider,min:0,max:10] float fadeTime; // in seconds
+  [text]bool loop;
   [text]bool showRadius;
-  [option,1:amb1,2:amb2,3:amb3]int sfx;
-  
+  [option,1:sound1,2:sound2,3:sound3,4:sound4,5:sound5,6:sound6,7:sound7,8:sound8,9:sound9,10:sound10]int sfx;
+  [option,1:music,2:ambience,3:sfx] uint soundGroup;
+    
   soundEffect() {
     sfx = 1;
     @g = get_scene();  
@@ -135,6 +162,8 @@ class soundEffect: trigger_base, callback_base {
     msg.set_float('volume', volume/100);
     msg.set_int('fadeTime', fadeTime);
     msg.set_int('name', sfx);
+    msg.set_int('loop', loop?1:0);
+    msg.set_int('soundGroup',soundGroup);
     broadcast_message('OnMyCustomEventName', msg);
   }
 }
