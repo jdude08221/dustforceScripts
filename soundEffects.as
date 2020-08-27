@@ -9,6 +9,7 @@ const string EMBED_sound7 = "sound6.ogg";
 const string EMBED_sound8 = "sound7.ogg";
 const string EMBED_sound9 = "sound8.ogg";
 const string EMBED_sound10 = "sound9.ogg";
+const uint WHITE = 4294967295;
 
 const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds
 const int MAX_PLAYERS = 4;
@@ -146,6 +147,9 @@ class soundEffect: trigger_base, callback_base {
   void init(script@ s, scripttrigger@ self) {  
     @scr = self;
     scr.editor_show_radius(false);
+    scr.editor_colour_circle(WHITE);
+    scr.editor_colour_inactive(WHITE);
+    scr.editor_colour_active(WHITE);
   }
     
   void editor_step() {
