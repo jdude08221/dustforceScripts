@@ -33,11 +33,13 @@ class script : callback_base {
     @g = get_scene();
     volumeChanged = false; 
     @musicHandle = null;
-    
+
     array<int> fadeTime = {0,0,0,0};
     array<float> volume = {0,0,0,0};
-    array<audio@> audioHandles = {null, null , null, null};
-    
+
+    array<audio@> audioHandles = {null, null, null, null, null,
+                                  null, null, null, null, null};
+
     sounds[0] = EMBED_sound1.split(".")[0];
     sounds[1] = EMBED_sound2.split(".")[0];
     sounds[2] = EMBED_sound3.split(".")[0];
