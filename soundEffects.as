@@ -131,10 +131,16 @@ class soundEffect: trigger_base, callback_base {
 	script@ script;
 	scene@ g;
 	scripttrigger @scr;
+  bool activated;
+  bool active_this_frame;
+  controllable@ trigger_entity;
+
   [slider,min:0,max:100] float volume;
   [slider,min:0,max:10] float fadeTime; // in seconds
   [text]bool loop;
+  [text]bool playOncePerActivation;
   [text]bool showRadius;
+  
   [option,1:sound1,2:sound2,3:sound3,4:sound4,5:sound5,6:sound6,7:sound7,8:sound8,9:sound9,10:sound10]int sfx;
   [option,1:music,2:ambience,3:sfx] uint soundGroup;
     
@@ -150,24 +156,69 @@ class soundEffect: trigger_base, callback_base {
     scr.editor_colour_circle(WHITE);
     scr.editor_colour_inactive(WHITE);
     scr.editor_colour_active(WHITE);
+    activated = false;
+    active_this_frame = false;
   }
     
   void editor_step() {
       scr.editor_show_radius(showRadius);
   }
+
   
+  void step() {
+    if(activated) {
+          if(not active_this_frame) {
+              activated = false;
+              falling_edge(@trigger_entity);
+          }
+          active_this_frame = false;
+      }
+  }
+
   void activate(controllable @e) {   
+
+    if(e.player_index() == 0) {
+        if(not activated) {
+            rising_edge(@e);
+            activated = true;
+        }
+        active_this_frame = true;
+    }
+
     if (e.as_dustman() == null) {
         return;
     }
-    message@ msg;
-    @msg = create_message(); 
-    msg.set_string('play', 'true');
-    msg.set_float('volume', volume/100);
-    msg.set_int('fadeTime', fadeTime);
-    msg.set_int('name', sfx);
-    msg.set_int('loop', loop?1:0);
-    msg.set_int('soundGroup',soundGroup);
-    broadcast_message('OnMyCustomEventName', msg);
+    // If we do want to constantly replay the sound while in the trigger
+    if(!playOncePerActivation) {
+      message@ msg;
+      @msg = create_message(); 
+      msg.set_string('play', 'true');
+      msg.set_float('volume', volume/100);
+      msg.set_int('fadeTime', fadeTime);
+      msg.set_int('name', sfx);
+      msg.set_int('loop', loop?1:0);
+      msg.set_int('soundGroup',soundGroup);
+      broadcast_message('OnMyCustomEventName', msg);
+    }
+  }
+
+  void rising_edge(controllable@ e) {
+    @trigger_entity = @e;
+    // If we don't want to constantly replay the sound while in the trigger
+    if(playOncePerActivation) {
+      message@ msg;
+      @msg = create_message(); 
+      msg.set_string('play', 'true');
+      msg.set_float('volume', volume/100);
+      msg.set_int('fadeTime', fadeTime);
+      msg.set_int('name', sfx);
+      msg.set_int('loop', loop?1:0);
+      msg.set_int('soundGroup',soundGroup);
+      broadcast_message('OnMyCustomEventName', msg);
+    }
+  }
+
+  void falling_edge(controllable@ e) {
+      @trigger_entity = null;
   }
 }
