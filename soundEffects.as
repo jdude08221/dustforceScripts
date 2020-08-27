@@ -23,7 +23,7 @@ class script : callback_base {
   
   array<string> sounds(NUM_SOUNDS);
   array<bool> isFading(NUM_SOUNDS);
-  array<int> fadeTime(NUM_SOUNDS);
+  array<float> fadeTime(NUM_SOUNDS);
   array<float> volume(NUM_SOUNDS);
   array<audio@> audioHandles(NUM_SOUNDS);
   bool volumeChanged;
@@ -60,7 +60,7 @@ class script : callback_base {
       bool loop = msg.get_int('loop') == 1;
       
       // if no existing audio stream is playing the requested sound, play it
-      if(audioHandles[selectedSound] == null || !audioHandles[selectedSound].is_playing()) {
+      if(@audioHandles[selectedSound] == null || !audioHandles[selectedSound].is_playing()) {
           @audioHandles[selectedSound] = 
           g.play_script_stream(sounds[selectedSound], soundGroup, 0, 0, loop, volume[0] );
       }
@@ -70,7 +70,7 @@ class script : callback_base {
       
       // If a notable difference of volume is found, we want to  
       if(volumeChanged){
-        fadeTime[selectedSound] = 60 * msg.get_int('fadeTime');
+        fadeTime[selectedSound] = 60 * msg.get_float('fadeTime');
       }
     }
   }
@@ -100,7 +100,7 @@ class script : callback_base {
 
       // go through all sounds and apply fades.  If a sound isn't supposed to fade, fadeTime[i] will be 0, and nothing will be applied to it.
       for(int i = 0; i < NUM_SOUNDS - 1; i++) {
-        if(audioHandles[i] != null) {
+        if(@audioHandles[i] != null) {
           if(fadeTime[i] > 0) {
             //Determine if we want to fade in or fade out audio.
             float sign = (audioHandles[i].volume() - volume[i]) > 0 ? -1 : 1;
@@ -115,12 +115,12 @@ class script : callback_base {
       //Determine if we want to stop fading
       bool stopFading = true;
       for(int i = 0; i < NUM_SOUNDS - 1; i++) {
-        stopFading = stopFading && !(audioHandles[i]!=null && !closeTo(audioHandles[i].volume(), volume[i], 0.01));
+        stopFading = stopFading && !(@audioHandles[i]!=null && !closeTo(audioHandles[i].volume(), volume[i], 0.01));
       }
       
       // Check to see if we should stop fading audio in / out
       if(stopFading){
-        for(int i = 0; i < fadeTime.size(); i++) {
+        for(uint i = 0; i < fadeTime.size(); i++) {
           fadeTime[i]= 0;
         }
         volumeChanged = false;
@@ -149,7 +149,13 @@ class soundEffect: trigger_base, callback_base {
   soundEffect() {
     sfx = 1;
     @g = get_scene();  
-    showRadius = false;
+    volume = 0;
+    fadeTime = 0;
+    loop = false;
+    playOncePerActivation = false;
+    showRadius = true;
+    sfx = 1;
+    soundGroup = 2;
   }
   
   void init(script@ s, scripttrigger@ self) {  
@@ -187,7 +193,7 @@ class soundEffect: trigger_base, callback_base {
         active_this_frame = true;
     }
 
-    if (e.as_dustman() == null) {
+    if (@e.as_dustman() == null) {
         return;
     }
     // If we do want to constantly replay the sound while in the trigger
@@ -196,7 +202,7 @@ class soundEffect: trigger_base, callback_base {
       @msg = create_message(); 
       msg.set_string('play', 'true');
       msg.set_float('volume', volume/100);
-      msg.set_int('fadeTime', fadeTime);
+      msg.set_float('fadeTime', fadeTime);
       msg.set_int('name', sfx);
       msg.set_int('loop', loop?1:0);
       msg.set_int('soundGroup',soundGroup);
@@ -212,7 +218,7 @@ class soundEffect: trigger_base, callback_base {
       @msg = create_message(); 
       msg.set_string('play', 'true');
       msg.set_float('volume', volume/100);
-      msg.set_int('fadeTime', fadeTime);
+      msg.set_float('fadeTime', fadeTime);
       msg.set_int('name', sfx);
       msg.set_int('loop', loop?1:0);
       msg.set_int('soundGroup',soundGroup);
