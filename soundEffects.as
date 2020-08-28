@@ -1,18 +1,18 @@
-const string EMBED_sound1 = "sound1.ogg"; 
-const string EMBED_sound2 = "sound2.ogg";
-const string EMBED_sound3 = "sound3.ogg";
-const string EMBED_sound4 = "sound4.ogg";
-const string EMBED_sound5 = "sound5.ogg";
-const string EMBED_sound6 = "sound6.ogg";
-const string EMBED_sound7 = "sound7.ogg";
-const string EMBED_sound8 = "sound8.ogg";
-const string EMBED_sound9 = "sound9.ogg"; 
+const string EMBED_sound1 = "amb1.ogg"; 
+const string EMBED_sound2 = "amb1.ogg";
+const string EMBED_sound3 = "amb1.ogg";
+const string EMBED_sound4 = "amb1.ogg";
+const string EMBED_sound5 = "amb1.ogg";
+const string EMBED_sound6 = "amb1.ogg";
+const string EMBED_sound7 = "amb1.ogg";
+const string EMBED_sound8 = "amb1.ogg";
+const string EMBED_sound9 = "amb1.ogg"; 
 const string EMBED_sound10 = "music.ogg";// this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
                                          // @musicHandle = g.play_script_stream(EMBED_sound10.split(".")[0], 2, 0, 0, true, musicVolume/100);
                                          // Or just set the volume to 0 in the script in the script editor UI
 const uint WHITE = 4294967295;
 
-const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds - 1 (music)
+const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds
 const int MAX_PLAYERS = 4;
 // Put audio files in ...\common\Dustforce\user\embed_src
   
@@ -157,7 +157,6 @@ class soundEffect: trigger_base, callback_base {
     loop = false;
     playOncePerActivation = false;
     showRadius = true;
-    sfx = 1;
     soundGroup = 2;
   }
   
