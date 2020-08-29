@@ -35,8 +35,8 @@ class script : callback_base {
     volumeChanged = false; 
     @musicHandle = null;
 
-    array<int> fadeTime = {0,0,0,0};
-    array<float> volume = {0,0,0,0};
+    array<int> fadeTime = {0,0,0,0,0,0,0,0,0,0};
+    array<float> volume = {0,0,0,0,0,0,0,0,0,0};
 
     array<audio@> audioHandles = {null, null, null, null, null,
                                   null, null, null, null, null};
