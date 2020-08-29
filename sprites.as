@@ -135,9 +135,9 @@ class script {
   [hidden] int Y1;
   [position,mode:world,layer:19,y:Y1] int X1;
   sansSprite@ sansAnimator;
-  array<string>sansWalkR;
-  array<string>sansFace;
-  array<string>fontSprites;
+  array<string>sansWalkR(4);
+  array<string>sansFace(15);
+  array<string>fontSprites(102);
 
   script() {
     array<string>sansWalkR = {"dark0r","dark1r","dark2r","dark3r"};
@@ -155,12 +155,11 @@ class script {
                          "text0065","text0066","text0067","text0068","text0069","text0070","text0071","text0072","text0073",
                          "text0074","text0075","text0076","text0077","text0078","text0079","text0080","text0081","text0082",
                          "text0083","text0084","text0085","text0086","text0087","text0088","text0089","text0090","text0091",
-                         "text0092","text0093","text0094","text0095","text0096","text0097","text0098","text0099","text0100","text0101",};
+                         "text0092","text0093","text0094","text0095","text0096","text0097","text0098","text0099","text0100","text0101"};
 
     @g = get_scene();
     frame_count = 0;
     @spr = create_sprites();
-    puts("x1"+X1+" Y1" +Y1);
     @sansAnimator = sansSprite(sansWalkR, sansFace, fontSprites);
   }
 
@@ -299,7 +298,6 @@ class script {
   }
 
   void step(int) { 
-
   }
 
   void draw(float subframe) {
@@ -322,7 +320,8 @@ class sansSprite {
     uint colour = 0xFFFFFFFF;
     int walkSpeed;
     int a;
-int changeText;
+    int changeText;
+
     sansSprite(array<string>darkWalkingSprites, array<string>faceSprites, array<string>fontSprites) {
         a = 0;
         walkSpeed = 50;
@@ -364,11 +363,25 @@ int changeText;
                          uint32 frame, uint32 palette, float x, float y, float rotation,
                          float scale_x, float scale_y, uint32 colour);*/
 
-        g.draw_rectangle_hud(19, 17, -700, 200, 700, 425, 0, 0xFFFFFFFF);
-        g.draw_rectangle_hud(19, 18, -690, 210, 690, 415,0, 0xFF000000);
-        spr.draw_hud(19, 19, face[0], 1, 1, -650, 265, 0, .65, .65, colour); 
-        spr.draw_hud(20, 20, font[a], 1, 1, 0, 240, 0, 1, 1, colour); 
-        spr.draw_hud(20, 20, font[a], 1, 1, 0, 240, 0, 1, 1, colour); 
+        g.draw_rectangle_hud(19, 17, -650, 200, 650, 425, 0, 0xFFFFFFFF);
+        g.draw_rectangle_hud(19, 18, -640, 210, 640, 415,0, 0xFF000000);
+
+        //San's face
+        spr.draw_hud(19, 19, face[0], 1, 1, -600, 260, 0, .75, .75, colour);
+
+        //Asterisk 
+        spr.draw_hud(20, 20, font[69], 1, 1, -425, 250, 0, .35, .35, colour); 
+
+rectangle@ r = spr.get_sprite_rect("text0001", 0);
+    //TODO: add text generation logic using sprite rectangles
+   // puts(""+r.get_width());
+spr.draw_hud(20, 20, font[58], 1, 1, -400+(45*1), 250, 0, .35, .35, colour);
+spr.draw_hud(20, 20, font[72], 1, 1, -400+(75), 260, 0, .35, .35, colour);
+spr.draw_hud(20, 20, font[16], 1, 1, -400+(80+25), 260, 0, .35, .35, colour);
+spr.draw_hud(20, 20, font[96], 1, 1, -400+(105+35), 277, 0, .35, .35, colour);
+        /*for(int i=1; i<10; i++) {
+            spr.draw_hud(20, 20, font[i], 1, 1, -400+(45*i), 250, 0, .35, .35, colour);
+        }*/
         
     }
 }
