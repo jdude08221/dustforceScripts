@@ -4,6 +4,12 @@ const string EMBED_dark1r = "sans/spr_sans_r_dark_1.png";
 const string EMBED_dark2r = "sans/spr_sans_r_dark_2.png";
 const string EMBED_dark3r = "sans/spr_sans_r_dark_3.png";
 
+//Walking right
+const string EMBED_walk0r = "sans/spr_sans_r_0.png";
+const string EMBED_walk1r = "sans/spr_sans_r_1.png";
+const string EMBED_walk2r = "sans/spr_sans_r_2.png";
+const string EMBED_walk3r = "sans/spr_sans_r_3.png";
+
 //Faces
 const string EMBED_bface0 = "sans/spr_sans_bface_0.png";
 const string EMBED_bface1 = "sans/spr_sans_bface_1.png";
@@ -117,30 +123,29 @@ const string EMBED_text0091 = "sanstext/sansFontsSpritesheet_0091.png";
 const string EMBED_text0092 = "sanstext/sansFontsSpritesheet_0092.png";
 const string EMBED_text0093 = "sanstext/sansFontsSpritesheet_0093.png";
 const string EMBED_text0094 = "sanstext/sansFontsSpritesheet_0094.png";
-const string EMBED_text0095 = "sanstext/sansFontsSpritesheet_0095.png";
-const string EMBED_text0096 = "sanstext/sansFontsSpritesheet_0096.png";
-const string EMBED_text0097 = "sanstext/sansFontsSpritesheet_0097.png";
-const string EMBED_text0098 = "sanstext/sansFontsSpritesheet_0098.png";
-const string EMBED_text0099 = "sanstext/sansFontsSpritesheet_0099.png";
-const string EMBED_text0100 = "sanstext/sansFontsSpritesheet_0100.png";
-const string EMBED_text0101 = "sanstext/sansFontsSpritesheet_0101.png";
 
-//const string EMBED_test2 = "test2.png";
-
+//Sound Effects
+const string EMBED_sound1 = "undertale_sounds/000029e6.ogg"; 
 
 class script {
   scene@ g;
   int frame_count;
+  int draw_frame_count;
+
   sprites@ spr;
   [hidden] int Y1;
   [position,mode:world,layer:19,y:Y1] int X1;
   sansSprite@ sansAnimator;
   array<string>sansWalkR(4);
   array<string>sansFace(15);
-  array<string>fontSprites(102);
+  array<string>fontSprites(97);
+
+  //Set to true if textbox is currently showing
+  bool isTalking;
 
   script() {
-    array<string>sansWalkR = {"dark0r","dark1r","dark2r","dark3r"};
+    array<string>sansDarkWalkR = {"dark0r","dark1r","dark2r","dark3r"};
+    array<string>sansWalkR = {"walk0r","walk1r","walk2r","walk3r"};
 
     array<string>sansFace = {"bface0","bface1","bface2","bface3","bface4",
                             "bface5","bface6","bface7","bface8","bface9",
@@ -155,12 +160,113 @@ class script {
                          "text0065","text0066","text0067","text0068","text0069","text0070","text0071","text0072","text0073",
                          "text0074","text0075","text0076","text0077","text0078","text0079","text0080","text0081","text0082",
                          "text0083","text0084","text0085","text0086","text0087","text0088","text0089","text0090","text0091",
-                         "text0092","text0093","text0094","text0095","text0096","text0097","text0098","text0099","text0100","text0101"};
+                         "text0092","text0093","text0094"};
+    
+    //still need i, j, ?, !, :, 
+    dictionary sansFont = {
+        {'Q', fontSprites[0]},
+        {'W', fontSprites[1]},
+        {'@', fontSprites[2]},
+        {'%', fontSprites[3]},
+        {'_', fontSprites[4]},
+        {'O', fontSprites[5]},
+        {'M', fontSprites[6]},
+        {'$', fontSprites[7]},
+        {'&', fontSprites[8]},
+        {'X', fontSprites[9]},
+        {'N', fontSprites[10]},
+        {'V', fontSprites[11]},
+        {'G', fontSprites[12]},
+        {'y', fontSprites[13]},
+        {'J', fontSprites[14]},
+        {'U', fontSprites[15]},
+        {'Z', fontSprites[16]},
+        {'Y', fontSprites[17]},
+        {'H', fontSprites[18]},
+        {'S', fontSprites[19]},
+        {'C', fontSprites[20]},
+        {'T', fontSprites[21]},
+        {'m', fontSprites[22]},
+        {'w', fontSprites[23]},
+        {'A', fontSprites[24]},
+        {'g', fontSprites[25]},
+        {'q', fontSprites[26]},
+        {'p', fontSprites[27]},
+        {'?', fontSprites[28]},
+        {'E', fontSprites[29]},
+        {'x', fontSprites[30]},
+        {'B', fontSprites[31]},
+        {'4', fontSprites[32]},
+        {'7', fontSprites[33]},
+        {'K', fontSprites[34]},
+        {'d', fontSprites[35]},
+        {'2', fontSprites[36]},
+        {'D', fontSprites[37]},
+        {'f', fontSprites[38]},
+        {'/', fontSprites[39]},
+        {'\\', fontSprites[40]},
+        {'{', fontSprites[41]},
+        {'j', fontSprites[42]},
+        {'}', fontSprites[43]},
+        {'r', fontSprites[44]},
+        {'R', fontSprites[45]},
+        {'L', fontSprites[46]},
+        {'n', fontSprites[47]},
+        {'u', fontSprites[48]},
+        {'z', fontSprites[49]},
+        {'t', fontSprites[50]},
+        {'8', fontSprites[51]},
+        {'1', fontSprites[52]},
+        {'3', fontSprites[53]},
+        {'6', fontSprites[54]},
+        {'e', fontSprites[55]},
+        {'o', fontSprites[56]},
+        {'a', fontSprites[57]},
+        {'c', fontSprites[58]},
+        {'5', fontSprites[59]},
+        {'b', fontSprites[60]},
+        {'h', fontSprites[61]},
+        {'F', fontSprites[62]},
+        {'v', fontSprites[63]},
+        {'0', fontSprites[64]},
+        {'k', fontSprites[65]},
+        {'I', fontSprites[66]},
+        {'9', fontSprites[67]},
+        {'+', fontSprites[68]},
+        {'~', fontSprites[69]},
+        {')', fontSprites[70]},
+        {'[', fontSprites[71]},
+        {']', fontSprites[72]},
+        {'(', fontSprites[73]},
+        {'P', fontSprites[74]},
+        {'s', fontSprites[75]},
+        {'=', fontSprites[76]},
+        {'*', fontSprites[77]},
+        {'-', fontSprites[78]},
+        {'<', fontSprites[79]},
+        {'>', fontSprites[80]},
+        {';', fontSprites[81]},
+        {'\"', fontSprites[82]},
+        {'^', fontSprites[83]},
+        {'|', fontSprites[84]},
+        {',', fontSprites[85]},
+        {'!', fontSprites[86]},
+        {'l', fontSprites[87]},
+        {'i', fontSprites[88]},
+        {'.', fontSprites[89]},
+        {':', fontSprites[90]},
+        {'`', fontSprites[91]},
+        {'\'', fontSprites[92]},
+        {'#', fontSprites[93]},
+        {' ', fontSprites[94]}
+    };
 
     @g = get_scene();
     frame_count = 0;
+    draw_frame_count = 0;
     @spr = create_sprites();
-    @sansAnimator = sansSprite(sansWalkR, sansFace, fontSprites);
+    @sansAnimator = sansSprite(sansDarkWalkR, sansFace, sansFont, spr);
+    isTalking = true;
   }
 
   void build_sprites(message@ msg) {
@@ -169,6 +275,12 @@ class script {
     msg.set_string("dark1r","dark1r");
     msg.set_string("dark2r","dark2r");
     msg.set_string("dark3r","dark3r");
+
+    //Build walking right sprites
+    msg.set_string("walk0r","walk0r");
+    msg.set_string("walk1r","walk1r");
+    msg.set_string("walk2r","walk2r");
+    msg.set_string("walk3r","walk3r");
 
     //Build face sprites
     msg.set_string("bface0","bface0");
@@ -292,38 +404,54 @@ class script {
     msg.set_string("text0101","text0101");
   }
 
+  void build_sounds(message@ msg) {
+    msg.set_string(EMBED_sound1.split(".")[0], "sound1");
+  }
+
   void on_level_start() {
     spr.add_sprite_set("script");
     sansAnimator.setXY(X1, Y1);
+    g.play_script_stream(EMBED_sound1.split(".")[0], 3, 0, 0, false, 1 );
   }
 
   void step(int) { 
+      frame_count++;
+      
   }
 
   void draw(float subframe) {
-    int frame = 1;
-    int palette = 1;
     float X2 = 0;
     float Y2 = 0;
-    frame_count++;
-    sansAnimator.walkRightDark(frame_count, spr);
-    sansAnimator.openTextbox(g, spr);
+
+    draw_frame_count++;
+    sansAnimator.walkRightDark(draw_frame_count, spr);
+
+    if(isTalking) {
+        isTalking = sansAnimator.say(g, spr, "sup");
+    }
   }
 }
 
 class sansSprite {
-    array<string> darkWalkingR;
-    array<string> face;
-    array<string> font;
+    //Sprites
+    array<string> darkWalkingR; // all walking right sprites blacked out
+    array<string> face; // all face sprites
+    dictionary font; // the entire font sprite list
+    array<string> charSpriteList; // list of sprites in order that we want to draw
+
     int startX, startY;
     int curFrame;
     uint colour = 0xFFFFFFFF;
     int walkSpeed;
-    int a;
-    int changeText;
 
-    sansSprite(array<string>darkWalkingSprites, array<string>faceSprites, array<string>fontSprites) {
-        a = 0;
+
+    //How much we want to scale the characters
+    float charScale;
+    //What x value we want to start text
+    float startTextX;
+    float startTextY;
+
+    sansSprite(array<string>darkWalkingSprites, array<string>faceSprites, dictionary fontSprites, sprites@ spr) {
         walkSpeed = 50;
         darkWalkingR = darkWalkingSprites;
         face = faceSprites;
@@ -331,7 +459,9 @@ class sansSprite {
         startX = 0;
         startY = 0;
         curFrame = 0;
-        changeText = 0;
+        charScale = 1;
+        startTextY = 250;
+        startTextX = -355;
     }
 
     void setXY(int x, int y) {
@@ -340,48 +470,70 @@ class sansSprite {
     }
 
     void walkRightDark(int frame, sprites@ spr) {
-        spr.draw_world(19, 19, darkWalkingR[curFrame], 0, 1, startX+frame/1.5, (((curFrame+1)%2)*4)+startY,
+        spr.draw_world(19, 19, darkWalkingR[curFrame], 0, 1, startX, (((curFrame+1)%2)*4)+startY,
                 0, .8, .8, colour);
-
-        if(frame%walkSpeed == 0) {
-            curFrame = curFrame + 1 >= darkWalkingR.size() ? 0 : curFrame+1;
-        }
-
-        if(frame%30 == 0) {
-            changeText++;
-        }
-        if(changeText >=font.size()) {
-            changeText = 0;
-        }
-
-        if(frame%80==0)
-            a= (a+1)%101;
+        //if(frame%walkSpeed == 0) {
+           // curFrame = curFrame + 1 >= darkWalkingR.size() ? 0 : curFrame+1;
+        //}
     }
 
-    void openTextbox(scene@ g, sprites@ spr) {
+    bool say(scene@ g, sprites@ spr, string txt) {
         /* void draw_hud(int layer, int sub_layer, string spriteName,
                          uint32 frame, uint32 palette, float x, float y, float rotation,
                          float scale_x, float scale_y, uint32 colour);*/
 
+        // Draw the textbox
         g.draw_rectangle_hud(19, 17, -650, 200, 650, 425, 0, 0xFFFFFFFF);
         g.draw_rectangle_hud(19, 18, -640, 210, 640, 415,0, 0xFF000000);
 
         //San's face
         spr.draw_hud(19, 19, face[0], 1, 1, -600, 260, 0, .75, .75, colour);
 
-        //Asterisk 
-        spr.draw_hud(20, 20, font[69], 1, 1, -425, 250, 0, .35, .35, colour); 
+        float AsteriskStart = 250;
 
-rectangle@ r = spr.get_sprite_rect("text0001", 0);
-    //TODO: add text generation logic using sprite rectangles
-   // puts(""+r.get_width());
-spr.draw_hud(20, 20, font[58], 1, 1, -400+(45*1), 250, 0, .35, .35, colour);
-spr.draw_hud(20, 20, font[72], 1, 1, -400+(75), 260, 0, .35, .35, colour);
-spr.draw_hud(20, 20, font[16], 1, 1, -400+(80+25), 260, 0, .35, .35, colour);
-spr.draw_hud(20, 20, font[96], 1, 1, -400+(105+35), 277, 0, .35, .35, colour);
-        /*for(int i=1; i<10; i++) {
-            spr.draw_hud(20, 20, font[i], 1, 1, -400+(45*i), 250, 0, .35, .35, colour);
-        }*/
+        //Asterisk 
+        spr.draw_hud(20, 20, string(font['*']), 1, 1, -415, AsteriskStart, 0, charScale, charScale, colour); 
+        writeText(g, spr, txt);
+
+        return true;    
+    }
+
+    void writeText(scene@ g, sprites@ spr, string txt) {
+        //Replace with where you want to start the line
+        float curX = startTextX;
+        float curY = startTextY;
         
+        //Go through all the characters in txt and print them to the screen
+        for(int i = 0; i < txt.size(); i++) {
+            //if we find a space, make one
+            if(txt.substr(i,1) == " ") {
+                curX += getCharWidth(spr, "o");
+            } else if(txt.substr(i,1) == "\n") { 
+                //return to start of line
+                curX = startTextX;
+
+                //move down to the next line
+                curY += getCharHeight(spr, "|");
+            } else {
+                spr.draw_hud(20, 20, string(font[txt.substr(i,1)]), 1, 1, curX, curY, 0, charScale, charScale, colour);
+                curX += getCharWidth(spr, txt.substr(i,1));
+            }    
+        }
+    }
+
+    float getCharWidth(sprites@ spr, string char) {
+        if(char.size() != 1) {
+            return 0;
+        } else {
+            return spr.get_sprite_rect(string(font[char]), 0).get_width() * charScale;
+        }
+    }
+
+    float getCharHeight(sprites@ spr, string char) {
+        if(char.size() != 1) {
+            return 0;
+        } else {
+            return spr.get_sprite_rect(string(font[char]), 0).get_height() * charScale;
+        }
     }
 }
