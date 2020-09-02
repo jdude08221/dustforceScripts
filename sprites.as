@@ -145,7 +145,7 @@ class script {
 
   //Set to true if textbox is currently showing
   bool isTalking;
-
+  bool closeTextbox;
   script() {
     array<string>sansDarkWalkR = {"dark0r","dark1r","dark2r","dark3r"};
     array<string>sansWalkR = {"walk0r","walk1r","walk2r","walk3r"};
@@ -267,7 +267,7 @@ class script {
     draw_frame_count = 0;
     @spr = create_sprites();
     @sansAnimator = sansSprite(sansDarkWalkR, sansFace, sansFont, spr);
-    isTalking = true;
+    closeTextbox = false;
   }
 
   void build_sprites(message@ msg) {
@@ -415,7 +415,12 @@ class script {
   }
 
   void step(int) { 
-      puts("" + timestamp_now());
+      dustman@ dm = controller_entity(0).as_dustman();
+
+      // Advance text when light attack is pressed
+      if(dm.light_intent() == 10) {
+        closeTextbox = sansAnimator.advanceText();
+      }
       frame_count++;
   }
 
@@ -423,9 +428,10 @@ class script {
     draw_frame_count++;
     sansAnimator.walkRightDark(draw_frame_count, spr, X1, Y1, X2, Y2);
 
-    if(isTalking) {
-        array<string> text = {"maybe sometimes it's\nbetter to take what's\ngiven to you."};
-        isTalking = sansAnimator.say(g, spr, text, frame_count);
+    if(!closeTextbox) {
+        array<string> text = {"this game looks cool...","what?","what else did you think i would say?"};
+        array<string> textFaces = {"bface0", "bface1", "bface3"};
+        sansAnimator.say(g, spr, text, textFaces, draw_frame_count, frame_count);
     }
   }
 }
@@ -447,11 +453,15 @@ class sansSprite {
     float startTextY;
 
     //Textbox variables
+    array<string> text; // what the current text we want to say is
     uint curTextIndex; // Where we are in the array of strings passed to the say function
     bool isTalking; // bool that tells us if the textbox is displayed
     int curCharacter; // Want to show characters one at a time like in undertale.  Keeps track of what character we currently are up to
     int textSpeed; // speed we want each character to show up in a textbox. This would be measured in #drawframes per character
     int pauseTime;  // after things like '...' ',' and '.' we want to take a pause.  Different characters call for different pauses.
+    int lastPhysFrame;
+    audio@ lastSound; // keep track of the last played audio handle to stop it when we want to start another
+    bool skipSound;
 
     sansSprite(array<string>darkWalkingSprites, array<string>faceSprites, dictionary fontSprites, sprites@ spr) {
         walkSpeed = 50;
@@ -472,8 +482,11 @@ class sansSprite {
         curTextIndex = 0;
         isTalking = false;
         curCharacter = -1;
-        textSpeed = 20; //TODO: need to find out if we need to tie this to physics frames... idk
+        textSpeed = 2; 
         pauseTime = -1;
+        lastPhysFrame = -1;
+        @lastSound = null;
+        skipSound = false;
     }
 
     void walkRightDark(int frame, sprites@ spr, float startX, float startY, float endX, float endY) {
@@ -496,13 +509,14 @@ class sansSprite {
         }
     }
 
-    bool say(scene@ g, sprites@ spr, array<string> txt, int frame) {
+    bool say(scene@ g, sprites@ spr, array<string> txt, array<string> textFaces, int frame, int physFrames) {
         /* void draw_hud(int layer, int sub_layer, string spriteName,
                          uint32 frame, uint32 palette, float x, float y, float rotation,
                          float scale_x, float scale_y, uint32 colour);*/
 
         // We are currently displaying the textbox
         isTalking = true;
+        text = txt;
 
         // init cur character
         if(curCharacter == -1) {
@@ -513,18 +527,19 @@ class sansSprite {
         g.draw_rectangle_hud(19, 17, -650, 200, 650, 425, 0, 0xFFFFFFFF);
         g.draw_rectangle_hud(19, 18, -640, 210, 640, 415,0, 0xFF000000);
 
+        //TODO: be sure to check if the size of textFaces and txt is the same
         //San's face
-        spr.draw_hud(19, 19, face[0], 1, 1, -600, 260, 0, .75, .75, colour);
+        spr.draw_hud(19, 19, textFaces[curTextIndex], 1, 1, -600, 260, 0, .75, .75, colour);
 
         float AsteriskStart = 250;
 
         //Asterisk 
         spr.draw_hud(20, 20, string(font['*']), 1, 1, -415, AsteriskStart, 0, charScale, charScale, colour); 
-        writeText(g, spr, string(txt[0]), frame);
-        return true;    
+        writeText(g, spr, string(txt[curTextIndex]), frame, physFrames);
+        return isTalking;    
     }
 
-    void writeText(scene@ g, sprites@ spr, string txt, int frame) {
+    void writeText(scene@ g, sprites@ spr, string txt, int frame, int physFrames) {
         //Replace with where you want to start the line
         float curX = startTextX;
         float curY = startTextY;
@@ -546,19 +561,27 @@ class sansSprite {
             }    
         }
 
+
+        // Always draw the textbox and current characters, but dont increment the current char ever draw frame as it isnt stable
+        if(physFrames == lastPhysFrame) {
+            return;
+        }
+
+        lastPhysFrame = physFrames;
+
+
         // Keep incrementing what character to draw so we draw them one at a time.
-        if((curCharacter < txt.size()) && (frame%textSpeed == 0)) {
+        if((curCharacter < txt.size()) && (lastPhysFrame%textSpeed == 0)) {
             
             string curChar = txt.substr(curCharacter,1);
 
             if((curChar == "." || curChar == "?") && pauseTime == -1) {
-                pauseTime = 8;
+                pauseTime = 4;
             } else if(curChar == "," && pauseTime == -1) {
                 pauseTime = 4;
             } else if(curChar == "\n" && pauseTime == -1) {
                 //no pause
             } else if(pauseTime != -1) {
-                puts("pauseTime "+pauseTime);
                 pauseTime = pauseTime - 1 == 0 ? -1 : pauseTime - 1;
 
                 if(pauseTime == -1) {
@@ -568,20 +591,40 @@ class sansSprite {
             }
             
             if(pauseTime == -1) { // We want to play a sound for every character except '.' '\n' and ',' while we are not pausing
-                g.play_script_stream(EMBED_sound1.split(".")[0], 3, 0, 0, false, 1 );
-                curCharacter += curCharacter <= txt.size() ? 1:0;
-            }
 
-            
+                if(!skipSound) {
+                    @lastSound = g.play_script_stream(EMBED_sound1.split(".")[0], 3, 0, 0, false, 1 );
+                }
+                skipSound = !skipSound;
+                curCharacter += curCharacter <= txt.size() ? 1:0;
+            }      
         }
     }
 
-    //TODO: implement
-    void nextTextbox() {
-        curCharacter = -1;
+    //Returns bool telling you if textbox is finished
+    bool advanceText() {
+        // do nothing if we are not talking
+        if(!isTalking) {
+            return true;
+        }
+
+        // if textbox has not shown all characters, show them all instead of advancing text
+        if(curCharacter < string(text[curTextIndex]).size()) {
+            curCharacter = string(text[curTextIndex]).size()-1;
+        } else {
+            // if we are on the last character and at the end of the textboxes, close the textbox
+            if(curTextIndex == text.size()-1) {
+                closeTextbox();
+                return true;
+            } else { //advance text
+                curCharacter = -1;
+                curTextIndex++;
+            }
+        }
+
+        return false;
     }
 
-    //TODO: implement
     void closeTextbox() {
         isTalking = false;
         pauseTime = 0;
@@ -602,9 +645,5 @@ class sansSprite {
         } else {
             return spr.get_sprite_rect(string(font[char]), 0).get_height() * charScale;
         }
-    }
-
-    int getPauseTime(string s) {
-      return 0;   
     }
 }
