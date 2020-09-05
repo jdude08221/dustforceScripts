@@ -10,6 +10,16 @@ const string EMBED_walk1r = "sans/spr_sans_r_1.png";
 const string EMBED_walk2r = "sans/spr_sans_r_2.png";
 const string EMBED_walk3r = "sans/spr_sans_r_3.png";
 
+//Walking toward
+const string EMBED_toward0 = "sans/spr_sans_d_0.png";
+const string EMBED_toward1 = "sans/spr_sans_d_1.png";
+const string EMBED_toward2 = "sans/spr_sans_d_2.png";
+const string EMBED_toward3 = "sans/spr_sans_d_3.png";
+
+//shrug
+const string EMBED_shrug0 = "sans/spr_sans_shrug1_0.png";
+const string EMBED_shrug1 = "sans/spr_sans_shrug2_0.png";
+
 //Faces
 const string EMBED_bface0 = "sans/spr_sans_bface_0.png";
 const string EMBED_bface1 = "sans/spr_sans_bface_1.png";
@@ -27,7 +37,7 @@ const string EMBED_bface12 = "sans/spr_sans_bface_12.png";
 const string EMBED_bface13 = "sans/spr_sans_bface_13.png";
 const string EMBED_bface14 = "sans/spr_sans_bface_14.png";
 
-//Font
+
 const string EMBED_text0000 = "sanstext/sansFontsSpritesheet_0000.png";
 const string EMBED_text0001 = "sanstext/sansFontsSpritesheet_0001.png";
 const string EMBED_text0002 = "sanstext/sansFontsSpritesheet_0002.png";
@@ -124,29 +134,40 @@ const string EMBED_text0092 = "sanstext/sansFontsSpritesheet_0092.png";
 const string EMBED_text0093 = "sanstext/sansFontsSpritesheet_0093.png";
 const string EMBED_text0094 = "sanstext/sansFontsSpritesheet_0094.png";
 
+
 //Sound Effects
 const string EMBED_sound1 = "undertale_sounds/000029e6.ogg"; 
+const string EMBED_sound2 = "undertale_sounds/mus_muscle.ogg"; 
 
-class script {
+
+class script : callback_base{
   scene@ g;
   int frame_count;
   int draw_frame_count;
 
   sprites@ spr;
-  [hidden] float Y1, Y2;
+  [hidden] float Y1;
+  [hidden] float Y2;
   [position,mode:world,layer:19,y:Y1] float X1;
-  [position,mode:world,layer:19,y:Y1] float X2;
+  [position,mode:world,layer:19,y:Y2] float X2;
+  [text] bool showSprite;
   sansSprite@ sansAnimator;
   array<string>sansWalkR(4);
+  array<string>sansShrug(2);
   array<string>sansFace(15);
+  array<string>sansWalkT(4);
   array<string>fontSprites(97);
 
   array<array<string>>textboxText;
 
   //Set to true if textbox is currently showing
   bool isTalking;
+  bool inRangeToTalk;
   bool closeTextbox;
   script() {
+      add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
+    array<string>sansWalkT = {"toward0","toward1","toward2","toward3"};
+    array<string>sansShrug = {"shrug0","shrug1"};
     array<string>sansDarkWalkR = {"dark0r","dark1r","dark2r","dark3r"};
     array<string>sansWalkR = {"walk0r","walk1r","walk2r","walk3r"};
     array<string>sansFace = {"bface0","bface1","bface2","bface3","bface4",
@@ -266,11 +287,26 @@ class script {
     frame_count = 0;
     draw_frame_count = 0;
     @spr = create_sprites();
-    @sansAnimator = sansSprite(sansDarkWalkR, sansFace, sansFont, spr);
+    @sansAnimator = sansSprite(sansWalkT, sansDarkWalkR, sansFace, sansWalkR, sansShrug, sansFont, spr);
     closeTextbox = false;
+    isTalking = false;
   }
 
+  void OnMyCustomEventName(string id, message@ msg) {
+    if(msg.get_string('talk') == 'true') {  
+        inRangeToTalk = true;
+    } else if(msg.get_string('talk') == 'true') {
+        inRangeToTalk = false;
+    }
+  }  
+
   void build_sprites(message@ msg) {
+    //Build walking right in the dark sprites
+    msg.set_string("toward0","toward0");
+    msg.set_string("toward1","toward1");
+    msg.set_string("toward2","toward2");
+    msg.set_string("toward3","toward3");
+
     //Build walking right in the dark sprites
     msg.set_string("dark0r","dark0r");
     msg.set_string("dark1r","dark1r");
@@ -282,6 +318,10 @@ class script {
     msg.set_string("walk1r","walk1r");
     msg.set_string("walk2r","walk2r");
     msg.set_string("walk3r","walk3r");
+
+    //Build shrug sprites
+    msg.set_string("shrug0","shrug0");
+    msg.set_string("shrug1","shrug1");
 
     //Build face sprites
     msg.set_string("bface0","bface0");
@@ -407,50 +447,97 @@ class script {
 
   void build_sounds(message@ msg) {
     msg.set_string(EMBED_sound1.split(".")[0], "sound1");
+    msg.set_string(EMBED_sound2.split(".")[0], "sound2");
   }
 
   void on_level_start() {
-    spr.add_sprite_set("script");
-    
+    spr.add_sprite_set("script");  
   }
 
   void step(int) { 
       dustman@ dm = controller_entity(0).as_dustman();
-
+        //TODO: possibly move textbox logic to sans object?
       // Advance text when light attack is pressed
       if(dm.light_intent() == 10) {
-        closeTextbox = sansAnimator.advanceText();
+          if(inRangeToTalk && !isTalking) {
+              disableMovement(dm);
+              isTalking = true;
+              closeTextbox = false;
+          } else if(isTalking) {
+              closeTextbox = sansAnimator.advanceText();
+          }       
+      }
+      if(isTalking) {
+          disableMovement(dm);
       }
       frame_count++;
   }
 
-  void draw(float subframe) {
-    draw_frame_count++;
-    sansAnimator.walkRightDark(draw_frame_count, spr, X1, Y1, X2, Y2);
-
-    if(!closeTextbox) {
-        array<string> text = {"this game looks cool...","what?","what else did you think i would say?"};
-        array<string> textFaces = {"bface0", "bface1", "bface3"};
-        sansAnimator.say(g, spr, text, textFaces, draw_frame_count, frame_count);
+    void disableMovement( dustman@ dm) {
+        dm.x_intent(0);
+        dm.y_intent(0);
+        dm.taunt_intent(0);
+        dm.heavy_intent(0);
+        dm.light_intent(0);
+        dm.dash_intent(0);
+        dm.jump_intent(0);
+        dm.fall_intent(0);
     }
+
+    void draw(float subframe) {
+        draw_frame_count++;
+        sansAnimator.walkRightDark(draw_frame_count, frame_count, spr, X1, Y1, X2, Y2, g);
+
+        if(!closeTextbox && isTalking) {
+            array<string> text = {"this game looks cool...","what?","what else did you think\ni would say?"};
+            array<string> textFaces = {"bface0", "bface1", "bface3"};
+            array<int> textSpriteMovements = {state_types::idle,state_types::shrug1,state_types::shrug0};
+            sansAnimator.say(g, spr, text, textFaces, textSpriteMovements, draw_frame_count, frame_count);
+        } else if(closeTextbox) {
+            isTalking = false;
+        } 
+    }
+
+    void editor_step() {
+        spr.add_sprite_set("script");  
+    }
+
+  //void standRightDark(int frame, sprites@ spr, float endX, float startY)
+  void editor_draw(float sub_frame) {
+      if(showSprite)
+      sansAnimator.standRightDark(0, 0, spr, X1, Y1);
   }
 }
 
-class sansSprite {
+class sansSprite : callback_base{
     //Sprites
     array<string> darkWalkingR; // all walking right sprites blacked out
+    array<string> walkingSprites; // all walking right sprites not blacked out
     array<string> face; // all face sprites
+    array<string> shrug; // shrug sprites
+    array<string> toward; // shrug sprites
     dictionary font; // the entire font sprite list
     array<string> charSpriteList; // list of sprites in order that we want to draw
  
     float X1, Y1, X2, Y2; // Sprite Positions.  These are used to move the sprite around.  
     int curFrame; // Current animation frame
     uint colour = 0xFFFFFFFF;   
-    int walkSpeed; // Speed we want the sprite to animate.  Most animations are walking.
+    int walkAnimateSpeed; // Speed we want the sprite to animate.  Most animations are walking.
+    int walkSpeed;
+    int frameCounter;
+
+    // time before sprite is revealed from being dark
+    int revealTime;
+
+    //States
+    bool isStanding;
+    bool isWalking;
+    bool isRevealed;
 
     float charScale; // How much we want to scale the characters in the textbox
     float startTextX;
     float startTextY;
+
 
     //Textbox variables
     array<string> text; // what the current text we want to say is
@@ -460,12 +547,28 @@ class sansSprite {
     int textSpeed; // speed we want each character to show up in a textbox. This would be measured in #drawframes per character
     int pauseTime;  // after things like '...' ',' and '.' we want to take a pause.  Different characters call for different pauses.
     int lastPhysFrame;
+    int lastPhysFrameAnim;
     audio@ lastSound; // keep track of the last played audio handle to stop it when we want to start another
+    audio@ sansMusic;
     bool skipSound;
+    float AsteriskStart;
+    int curAction;
+    int state;
 
-    sansSprite(array<string>darkWalkingSprites, array<string>faceSprites, dictionary fontSprites, sprites@ spr) {
-        walkSpeed = 50;
+    float curX, curY;
+
+
+    sansSprite(array<string>towardSprites, array<string>darkWalkingSprites, array<string>faceSprites, array<string>walkingSpritesIn, array<string>shrugSprites, dictionary fontSprites, sprites@ spr) {
+        //Walking animation speeds
+        walkSpeed = 2;
+        walkAnimateSpeed = 75;
+        
+
         darkWalkingR = darkWalkingSprites;
+        walkingSprites = walkingSpritesIn;
+        shrug = shrugSprites;
+        toward = towardSprites;
+
         face = faceSprites;
         font = fontSprites;
 
@@ -475,21 +578,67 @@ class sansSprite {
         //End position for the sprite
         X2 = 0; Y2 = 0;
 
+        //current position of the sprite
+        curX = 0; curY = 0;
+
         curFrame = 0;
         charScale = 1;
         startTextY = 250;
-        startTextX = -355;
+        AsteriskStart = -225;
+        startTextX = AsteriskStart+50;
         curTextIndex = 0;
         isTalking = false;
         curCharacter = -1;
         textSpeed = 2; 
         pauseTime = -1;
         lastPhysFrame = -1;
+        lastPhysFrameAnim = -1;
+        frameCounter = -1;
+        revealTime = 120;
+        curAction = 0;
+
         @lastSound = null;
         skipSound = false;
+
+        //States
+        isStanding = false;
+        isWalking = false;
+        isRevealed = false;
+
+
     }
 
-    void walkRightDark(int frame, sprites@ spr, float startX, float startY, float endX, float endY) {
+    // 0
+    void doStuff(int frame, int physFrame, sprites@ spr, scene@ g) {
+        //Update the trigger position every frame;
+        //TODO: add animation states possibly?
+        switch(state) {
+            case state_types::idle:
+                idle(frame, physFrame, spr, curX, curY);
+                break;
+            case state_types::shrug0:
+                shrug0(frame, physFrame, spr, curX, curY);
+                break;
+            case state_types::shrug1:
+                shrug1(frame, physFrame, spr, curX, curY);
+                break;
+            case state_types::laughing:
+                break;
+            default:
+                break;
+        }
+    }
+
+    void setTriggerPos(sprites@ spr) {
+        message@ msg;
+        @msg = create_message(); 
+        float halfSprWidth = spr.get_sprite_rect(toward[0], 0).get_width()/2;
+        msg.set_string('updatePosX',(curX+halfSprWidth)+"");
+        msg.set_string('updatePosY',curY+"");
+        broadcast_message('MyUpdateTriggerPos', msg);
+    }
+
+    void walkRightDark(int frame, int physFrame, sprites@ spr, float startX, float startY, float endX, float endY, scene@ g) {
 
         if(X1 == 0 && Y1 == 0 && X2 == 0 && Y2 == 0) {
             X1 = startX;
@@ -497,19 +646,89 @@ class sansSprite {
             Y1 = startY;
             Y2 = endY;
         }
+        
+        //Once we have gone through the starting sequence, go to normal state machine
+        if(isRevealed) {
+            doStuff(frame, physFrame, spr, g);
+            return;
+        }
 
-        spr.draw_world(19, 19, darkWalkingR[curFrame], 0, 1, X1, (((curFrame+1)%2)*4)+startY,
+        if(endX == X1) {
+            curX = endX;
+            curY = startY;
+            reveal(frame, physFrame, spr, endX, startY, g);
+            if(!isRevealed) {
+                standRightDark(frame, physFrame, spr, endX, startY);
+            }
+            return;
+        }
+
+        
+        //Y value is manipulated to have a bobbing effect while walking
+        spr.draw_world(18, 1, darkWalkingR[curFrame], 0, 1, X1, (((curFrame+1)%2)*4)+startY,
                        0, .8, .8, colour);
 
-        if(X1 != endX) {
+        if(X1 != endX && frame%walkSpeed==0) {
             X1++;
         }
-        if(frame%walkSpeed == 0) {
+
+        if(frame%walkAnimateSpeed == 0) {
             curFrame = curFrame + 1 >= darkWalkingR.size() ? 0 : curFrame+1;
         }
     }
 
-    bool say(scene@ g, sprites@ spr, array<string> txt, array<string> textFaces, int frame, int physFrames) {
+    //Y value is manipulated to have a bobbing effect while walking
+    void standRightDark(int frame, int physFrame, sprites@ spr, float X, float Y) {
+        spr.draw_world(18, 1, darkWalkingR[0], 0, 1, X, (((curFrame+1)%2)*4)+Y,
+                       0, .8, .8, colour);
+        isStanding = true;
+        isWalking = false;
+        isRevealed = false;
+    }
+
+    void reveal(int frame, int physFrame, sprites@ spr, float X, float Y, scene@ g) {
+        //init timer
+        
+        if(frameCounter == -1 && !isRevealed) {
+        
+            frameCounter = 0;
+        } else if(frameCounter < revealTime && lastPhysFrameAnim != physFrame && !isRevealed) {       
+            frameCounter++;
+        } else if(frameCounter >= revealTime || isRevealed){
+            spr.draw_world(18, 1, walkingSprites[0], 0, 1, X, (((curFrame+1)%2)*4)+Y,
+                       0, .8, .8, colour);
+            isStanding = true;
+            isRevealed = true;
+            
+            if(frameCounter >= revealTime) {
+                puts("play");
+                @sansMusic = g.play_script_stream(EMBED_sound2.split(".")[0], 3, 0, 0, true, 1 );
+                frameCounter = 0;
+                lastPhysFrameAnim = -1;
+                state = state_types::idle;
+                setTriggerPos(spr);
+            }
+        }
+        
+        lastPhysFrameAnim = physFrame;
+    }
+
+    void idle(int frame, int physFrame, sprites@ spr, float X, float Y) {
+        spr.draw_world(18, 1, toward[0], 0, 1, X, (((curFrame+1)%2)*4)+Y,
+                       0, .8, .8, colour);
+    }
+
+    void shrug0(int frame, int physFrame, sprites@ spr, float X, float Y) {
+        spr.draw_world(18, 1, shrug[0], 0, 1, X, (((curFrame+1)%2)*4)+Y,
+                       0, .8, .8, colour);
+    }
+
+    void shrug1(int frame, int physFrame, sprites@ spr, float X, float Y) {
+        spr.draw_world(18, 1, shrug[1], 0, 1, X, (((curFrame+1)%2)*4)+Y,
+                       0, .8, .8, colour);
+    }
+
+    bool say(scene@ g, sprites@ spr, array<string> txt, array<string> textFaces, array<int> sprPose, int frame, int physFrames) {
         /* void draw_hud(int layer, int sub_layer, string spriteName,
                          uint32 frame, uint32 palette, float x, float y, float rotation,
                          float scale_x, float scale_y, uint32 colour);*/
@@ -524,17 +743,16 @@ class sansSprite {
         }
 
         // Draw the textbox
-        g.draw_rectangle_hud(19, 17, -650, 200, 650, 425, 0, 0xFFFFFFFF);
-        g.draw_rectangle_hud(19, 18, -640, 210, 640, 415,0, 0xFF000000);
+        g.draw_rectangle_hud(19, 17, -450, 200, 450, 425, 0, 0xFFFFFFFF);
+        g.draw_rectangle_hud(19, 18, -440, 210, 440, 415,0, 0xFF000000);
 
-        //TODO: be sure to check if the size of textFaces and txt is the same
         //San's face
-        spr.draw_hud(19, 19, textFaces[curTextIndex], 1, 1, -600, 260, 0, .75, .75, colour);
+        spr.draw_hud(19, 19, textFaces[curTextIndex], 1, 1, -400, 260, 0, .75, .75, colour);
 
-        float AsteriskStart = 250;
-
+        //TODO: possibly match faces to poses during text?  not sure
+        state = sprPose[curTextIndex];
         //Asterisk 
-        spr.draw_hud(20, 20, string(font['*']), 1, 1, -415, AsteriskStart, 0, charScale, charScale, colour); 
+        spr.draw_hud(20, 20, string(font['*']), 1, 1, AsteriskStart, startTextY, 0, charScale, charScale, colour); 
         writeText(g, spr, string(txt[curTextIndex]), frame, physFrames);
         return isTalking;    
     }
@@ -629,6 +847,8 @@ class sansSprite {
         isTalking = false;
         pauseTime = 0;
         curTextIndex = 0;
+        curCharacter = -1;
+        state = state_types::idle;
     }
 
     float getCharWidth(sprites@ spr, string char) {
@@ -646,4 +866,73 @@ class sansSprite {
             return spr.get_sprite_rect(string(font[char]), 0).get_height() * charScale;
         }
     }
+}
+
+class sansTrigger: trigger_base, callback_base {
+    bool activated;
+    bool active_this_frame;
+    controllable@ trigger_entity;
+    scripttrigger@ self;
+    bool skip;
+    
+    void init(script@ s, scripttrigger@ self) {
+        skip = true;
+        activated = false;
+        active_this_frame = false;
+        @this.self = @self;
+        add_broadcast_receiver('MyUpdateTriggerPos', this, 'MyUpdateTriggerPos');
+    }
+    
+    void rising_edge(controllable@ e) {
+        @trigger_entity = @e;
+        message@ msg;
+        @msg = create_message(); 
+        msg.set_string('talk','true');
+        broadcast_message('OnMyCustomEventName', msg);
+    }
+
+    void falling_edge(controllable@ e) {
+        @trigger_entity = null;
+        message@ msg;
+        @msg = create_message(); 
+        msg.set_string('talk','false');
+        broadcast_message('OnMyCustomEventName', msg);
+    }
+    
+    void step() {
+        if(activated) {
+            if(not active_this_frame) {
+                activated = false;
+                falling_edge(@trigger_entity);
+            }
+            active_this_frame = false;
+        }
+    }
+    
+    void activate(controllable@ e) {
+        if(e.player_index() == 0) {
+            if(not activated) {
+                rising_edge(@e);
+                activated = true;
+            }
+            active_this_frame = true;
+        }
+    }
+
+   void MyUpdateTriggerPos(string id, message@ msg) {
+    if(msg.get_string('updatePosX') != "") {  
+        self.as_entity().x(parseFloat(msg.get_string('updatePosX')));
+    }
+    
+    if(msg.get_string('updatePosY') != "") {
+        self.as_entity().y(parseFloat(msg.get_string('updatePosY')));
+    }
+  } 
+}
+
+enum state_types{
+    idle = 0,
+    shrug0 = 1,
+    shrug1 = 2,
+    laughing = 3
 }
