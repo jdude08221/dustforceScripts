@@ -295,7 +295,7 @@ class script : callback_base{
   void OnMyCustomEventName(string id, message@ msg) {
     if(msg.get_string('talk') == 'true') {  
         inRangeToTalk = true;
-    } else if(msg.get_string('talk') == 'true') {
+    } else if(msg.get_string('talk') == 'false') {
         inRangeToTalk = false;
     }
   }  
@@ -780,7 +780,7 @@ class sansSprite : callback_base{
         }
 
 
-        // Always draw the textbox and current characters, but dont increment the current char ever draw frame as it isnt stable
+        // Only add more characters every physics frame for stability
         if(physFrames == lastPhysFrame) {
             return;
         }
@@ -789,8 +789,7 @@ class sansSprite : callback_base{
 
 
         // Keep incrementing what character to draw so we draw them one at a time.
-        if((curCharacter < txt.size()) && (lastPhysFrame%textSpeed == 0)) {
-            
+        if((curCharacter < txt.size()) && (lastPhysFrame%textSpeed == 0)) {          
             string curChar = txt.substr(curCharacter,1);
 
             if((curChar == "." || curChar == "?") && pauseTime == -1) {
