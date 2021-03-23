@@ -138,12 +138,13 @@ const string EMBED_text0094 = "sanstext/sansFontsSpritesheet_0094.png";
 //Sound Effects
 const string EMBED_sound1 = "undertale_sounds/000029e6.ogg"; 
 const string EMBED_sound2 = "undertale_sounds/mus_muscle.ogg"; 
-
+const int NUM_CONVERSATIONS = 2;
 
 class script : callback_base{
   scene@ g;
   int frame_count;
   int draw_frame_count;
+  int conversationCount;
 
   sprites@ spr;
   [hidden] float Y1;
@@ -158,14 +159,37 @@ class script : callback_base{
   array<string>sansWalkT(4);
   array<string>fontSprites(97);
 
-  array<array<string>>textboxText;
-
   //Set to true if textbox is currently showing
   bool isTalking;
   bool inRangeToTalk;
   bool closeTextbox;
+  bool startScene;
+  array<array<string>> conversations(NUM_CONVERSATIONS);
+  array<array<string>> conversationTextFaces(NUM_CONVERSATIONS);
+  array<array<int>> conversationTextSpriteMovements(NUM_CONVERSATIONS);
   script() {
-      add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
+
+    //Sans converstaions here
+    array<string> conversation0 = {"this game looks cool...","what?","what else did you think\ni would say?"};
+    array<string> conversation1 = {"test"};
+    conversations[0] = conversation0;
+    conversations[1] = conversation1;
+    conversationCount = 0;
+
+
+    array<string> conversationTextFaces0 = {"bface0", "bface1", "bface3"};
+    array<string> conversationTextFaces1 = {"bface0"};
+    conversationTextFaces[0] = conversationTextFaces0;
+    conversationTextFaces[1] = conversationTextFaces1;
+
+    array<int> conversationTextSpriteMovements0 = {state_types::idle,state_types::shrug1,state_types::shrug0};
+    array<int> conversationTextSpriteMovements1 = {state_types::shrug0};
+    conversationTextSpriteMovements[0] = conversationTextSpriteMovements0;
+    conversationTextSpriteMovements[1] = conversationTextSpriteMovements1;
+
+
+    add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
+    add_broadcast_receiver('OnMyCustomEventNameTwo', this, 'OnMyCustomEventNameTwo');
     array<string>sansWalkT = {"toward0","toward1","toward2","toward3"};
     array<string>sansShrug = {"shrug0","shrug1"};
     array<string>sansDarkWalkR = {"dark0r","dark1r","dark2r","dark3r"};
@@ -283,6 +307,8 @@ class script : callback_base{
         {' ', fontSprites[94]}};
 
     
+
+
     @g = get_scene();
     frame_count = 0;
     draw_frame_count = 0;
@@ -290,6 +316,7 @@ class script : callback_base{
     @sansAnimator = sansSprite(sansWalkT, sansDarkWalkR, sansFace, sansWalkR, sansShrug, sansFont, spr);
     closeTextbox = false;
     isTalking = false;
+    startScene = false;
   }
 
   void OnMyCustomEventName(string id, message@ msg) {
@@ -297,6 +324,12 @@ class script : callback_base{
         inRangeToTalk = true;
     } else if(msg.get_string('talk') == 'false') {
         inRangeToTalk = false;
+    }
+  }  
+
+    void OnMyCustomEventNameTwo(string id, message@ msg) {
+    if(msg.get_string('start') == 'true') {  
+        startScene = true;
     }
   }  
 
@@ -455,6 +488,9 @@ class script : callback_base{
   }
 
   void step(int) { 
+      if(!startScene) {
+            return;
+        }
       dustman@ dm = controller_entity(0).as_dustman();
         //TODO: possibly move textbox logic to sans object?
       // Advance text when light attack is pressed
@@ -485,16 +521,23 @@ class script : callback_base{
     }
 
     void draw(float subframe) {
+        if(!startScene) {
+            return;
+        }
         draw_frame_count++;
         sansAnimator.walkRightDark(draw_frame_count, frame_count, spr, X1, Y1, X2, Y2, g);
 
+        //Set up converstaions... Eventually move above to be 
+        
+
+
         if(!closeTextbox && isTalking) {
-            array<string> text = {"this game looks cool...","what?","what else did you think\ni would say?"};
-            array<string> textFaces = {"bface0", "bface1", "bface3"};
-            array<int> textSpriteMovements = {state_types::idle,state_types::shrug1,state_types::shrug0};
-            sansAnimator.say(g, spr, text, textFaces, textSpriteMovements, draw_frame_count, frame_count);
+            //TODO: set up animator to cycle through conversations
+            sansAnimator.say(g, spr, conversations[conversationCount], conversationTextFaces[conversationCount], conversationTextSpriteMovements[conversationCount], draw_frame_count, frame_count);
         } else if(closeTextbox) {
+            conversationCount = (conversationCount + 1) % (NUM_CONVERSATIONS);
             isTalking = false;
+            closeTextbox = false;
         } 
     }
 
@@ -504,8 +547,10 @@ class script : callback_base{
 
   //void standRightDark(int frame, sprites@ spr, float endX, float startY)
   void editor_draw(float sub_frame) {
-      if(showSprite)
-      sansAnimator.standRightDark(0, 0, spr, X1, Y1);
+      if(showSprite) {
+        sansAnimator.standRightDark(0, 0, spr, X1, Y1);
+        sansAnimator.idle(0, 0, spr, X2, Y2);
+      }
   }
 }
 
@@ -934,4 +979,53 @@ enum state_types{
     shrug0 = 1,
     shrug1 = 2,
     laughing = 3
+}
+
+
+class activateCutsceneTrigger: trigger_base, callback_base {
+    bool activated;
+    bool active_this_frame;
+    controllable@ trigger_entity;
+    
+    void init(script@ s, scripttrigger@ self) {
+        activated = false;
+        active_this_frame = false;
+    }
+    
+    void rising_edge(controllable@ e) {
+        @trigger_entity = @e;
+        activateScene();
+    }
+
+    void falling_edge(controllable@ e) {
+        @trigger_entity = null;
+        // do stuff
+    }
+    
+    void step() {
+        if(activated) {
+            if(not active_this_frame) {
+                activated = false;
+                falling_edge(@trigger_entity);
+            }
+            active_this_frame = false;
+        }
+    }
+    
+    void activate(controllable@ e) {
+        if(e.player_index() == 0) {
+            if(not activated) {
+                rising_edge(@e);
+                activated = true;
+            }
+            active_this_frame = true;
+        }
+    }
+
+    void activateScene() {
+        message@ msg;
+        @msg = create_message(); 
+        msg.set_string('start', 'true');
+        broadcast_message('OnMyCustomEventNameTwo', msg);
+  }
 }
