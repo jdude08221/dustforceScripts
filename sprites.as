@@ -147,10 +147,15 @@ class script : callback_base{
   int conversationCount;
 
   sprites@ spr;
+  [entity] int apple;
   [hidden] float Y1;
   [hidden] float Y2;
   [position,mode:world,layer:19,y:Y1] float X1;
   [position,mode:world,layer:19,y:Y2] float X2;
+
+  [hidden] float AppleY1;
+  [position,mode:world,layer:19,y:AppleY1] float AppleX1;
+
   [text] bool showSprite;
   sansSprite@ sansAnimator;
   array<string>sansWalkR(4);
@@ -164,10 +169,14 @@ class script : callback_base{
   bool inRangeToTalk;
   bool closeTextbox;
   bool startScene;
+  bool appleMoved;
   array<array<string>> conversations(NUM_CONVERSATIONS);
   array<array<string>> conversationTextFaces(NUM_CONVERSATIONS);
   array<array<int>> conversationTextSpriteMovements(NUM_CONVERSATIONS);
+  entity@ sansApple;
+
   script() {
+    appleMoved = false;
 
     //Sans converstaions here
     array<string> conversation0 = {"this game looks cool...","what?","what else did you think\ni would say?"};
@@ -484,6 +493,7 @@ class script : callback_base{
   }
 
   void on_level_start() {
+    @sansApple = entity_by_id(apple);
     spr.add_sprite_set("script");  
   }
 
@@ -538,6 +548,11 @@ class script : callback_base{
             conversationCount = (conversationCount + 1) % (NUM_CONVERSATIONS);
             isTalking = false;
             closeTextbox = false;
+            if(!appleMoved) {
+                appleMoved = true;
+                sansApple.y(AppleY1);
+                sansApple.x(AppleX1);
+            }
         } 
     }
 
