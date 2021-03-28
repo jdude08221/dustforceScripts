@@ -138,8 +138,8 @@ const string EMBED_text0094 = "sanstext/sansFontsSpritesheet_0094.png";
 //Sound Effects
 const string EMBED_sound1 = "undertale_sounds/000029e6.ogg"; 
 const string EMBED_sound2 = "undertale_sounds/mus_muscle.ogg"; 
-const int NUM_CONVERSATIONS = 2;
-
+const int NUM_CONVERSATIONS = 6;
+const int NUM_CHAR_SPECIFIC_CONVOS = 2;
 class script : callback_base{
   scene@ g;
   int frame_count;
@@ -170,32 +170,127 @@ class script : callback_base{
   bool closeTextbox;
   bool startScene;
   bool appleMoved;
+  bool conversationsSetup; //this bool is used to determine if the conversations array has been fully populated with character specific convos
   array<array<string>> conversations(NUM_CONVERSATIONS);
   array<array<string>> conversationTextFaces(NUM_CONVERSATIONS);
   array<array<int>> conversationTextSpriteMovements(NUM_CONVERSATIONS);
+  array<int> characterSpecificindices(NUM_CHAR_SPECIFIC_CONVOS);
+
+  array<array<string>> manConvo(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<string>> manConvoTextFaces(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<int>> manConversationTextSpriteMovements(NUM_CHAR_SPECIFIC_CONVOS);
+
+  array<array<string>> girlConvo(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<string>> girlConvoTextFaces(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<int>> girlConversationTextSpriteMovements(NUM_CHAR_SPECIFIC_CONVOS);
+
+  array<array<string>> kidConvo(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<string>> kidConvoTextFaces(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<int>> kidConversationTextSpriteMovements(NUM_CHAR_SPECIFIC_CONVOS);
+
+  array<array<string>> worthConvo(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<string>> worthConvoTextFaces(NUM_CHAR_SPECIFIC_CONVOS);
+  array<array<int>> worthConversationTextSpriteMovements(NUM_CHAR_SPECIFIC_CONVOS);
+
   entity@ sansApple;
 
   script() {
     appleMoved = false;
+    conversationsSetup = false;
+    //TODO: determine where we want these conversations
+    characterSpecificindices[0] = NUM_CONVERSATIONS - NUM_CHAR_SPECIFIC_CONVOS;
+    characterSpecificindices[1] = NUM_CONVERSATIONS - NUM_CHAR_SPECIFIC_CONVOS + 1;
+
+    //MAN
+    
+    array<string> mconvos0 = {
+        "you sure dress well for\nbein' a janitor.", 
+        "the blue really gives off\n'boring all-arounder' vibes.",
+        "just my style."
+    };
+    array<string> mconvos1 = {"you also know what they\nsay about people who\nwear blue.", 
+        "they are real 'lady killers'.", 
+        "probably not smart to\noutwardly confess somthin'\nlike that.",
+        "you don't have to worry\nabout me wearin' it though,\nskeletons can't go to jail.",
+        "at least i've never seen it\nhappen."
+    };
+    manConvo[0] = mconvos0;
+    manConvo[1] = mconvos1;
+
+    array<string> mconvoTextFaces0 = {"bface1", "bface0", "bface3"};
+    array<string> mconvoTextFaces1 = {"bface0","bface3","bface8","bface9","bface1"};
+    manConvoTextFaces[0] = mconvoTextFaces0;
+    manConvoTextFaces[1] = mconvoTextFaces1;
+
+    array<int> mConversationTextSpriteMovements0 = {state_types::idle, state_types::idle, state_types::shrug0};
+    array<int> mConversationTextSpriteMovements1 = {state_types::idle, state_types::idle, state_types::idle, state_types::shrug0,state_types::shrug1};
+    manConversationTextSpriteMovements[0] = mConversationTextSpriteMovements0;
+    manConversationTextSpriteMovements[1] = mConversationTextSpriteMovements1;
+    
+    //GIRL
+    array<string> gconvos0 = {"hey lady, thats quite a nice push\nbroom you've got there...", "not sure why you are hitting everything with it"};
+    girlConvo[0] = gconvos0;
+    
+    array<string> gConvoTextFaces = {""};
+    girlConvoTextFaces[0] = gConvoTextFaces;
+
+    array<int> gConversationTextSpriteMovements = {0};
+    girlConversationTextSpriteMovements[0] = gConversationTextSpriteMovements;
+
+    //KID
+    array<string> kconvos0 = {""};
+    kidConvo[0] = kconvos0;
+    
+    array<string> kConvoTextFaces = {""};
+    kidConvoTextFaces[0] = kConvoTextFaces;
+
+    array<int> kConversationTextSpriteMovements = {0};
+    kidConversationTextSpriteMovements[0] = kConversationTextSpriteMovements;
+
+    //WORTH
+    array<string> wconvos0 = {""};
+    worthConvo[0] = wconvos0;
+    
+    array<string> wConvoTextFaces = {""};
+    worthConvoTextFaces[0] = wConvoTextFaces;
+
+    array<int> wConversationTextSpriteMovements = {0};
+    worthConversationTextSpriteMovements[0] = wConversationTextSpriteMovements;
 
     //Sans converstaions here
     array<string> conversation0 = {"this game looks cool...","what?","what else did you think\ni would say?"};
-    array<string> conversation1 = {"test"};
+    array<string> conversation1 = {"..."};
+    array<string> conversation2 = {"......"};
+    array<string> conversation3 = {"you sure don't like talkin.","that's alright though, you\ndon't have to talk to crack\na smile...","oh you dont smile either?",
+    "well that's alright, you\ndon't have to talk or smile\nto uh...","not do those things."};
+    
     conversations[0] = conversation0;
     conversations[1] = conversation1;
+    conversations[2] = conversation2;
+    conversations[3] = conversation3;
+
     conversationCount = 0;
 
 
     array<string> conversationTextFaces0 = {"bface0", "bface1", "bface3"};
-    array<string> conversationTextFaces1 = {"bface0"};
+    array<string> conversationTextFaces1 = {"bface1"};
+    array<string> conversationTextFaces2 = {"bface8"};
+    array<string> conversationTextFaces3 = {"bface0","bface3","bface7","bface8","bface9"};
+
     conversationTextFaces[0] = conversationTextFaces0;
     conversationTextFaces[1] = conversationTextFaces1;
+    conversationTextFaces[2] = conversationTextFaces2;
+    conversationTextFaces[3] = conversationTextFaces3;
 
     array<int> conversationTextSpriteMovements0 = {state_types::idle,state_types::shrug1,state_types::shrug0};
-    array<int> conversationTextSpriteMovements1 = {state_types::shrug0};
+    array<int> conversationTextSpriteMovements1 = {state_types::idle};
+    array<int> conversationTextSpriteMovements2 = {state_types::idle};
+    array<int> conversationTextSpriteMovements3 = {state_types::idle, state_types::shrug0,state_types::idle,state_types::idle,state_types::shrug0};
+
     conversationTextSpriteMovements[0] = conversationTextSpriteMovements0;
     conversationTextSpriteMovements[1] = conversationTextSpriteMovements1;
-
+    conversationTextSpriteMovements[2] = conversationTextSpriteMovements2;
+    conversationTextSpriteMovements[3] = conversationTextSpriteMovements3;
 
     add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
     add_broadcast_receiver('OnMyCustomEventNameTwo', this, 'OnMyCustomEventNameTwo');
@@ -493,16 +588,48 @@ class script : callback_base{
   }
 
   void on_level_start() {
-    @sansApple = entity_by_id(apple);
     spr.add_sprite_set("script");  
   }
 
   void step(int) { 
+      @sansApple = entity_by_id(apple);
       if(!startScene) {
             return;
-        }
+      }
       dustman@ dm = controller_entity(0).as_dustman();
-        //TODO: possibly move textbox logic to sans object?
+
+      //Populate conversation arrays with character specific conversations
+      if(!conversationsSetup) {
+          conversationsSetup = true;
+          //TODO determine how the index should work possibly? as of now just puts all character specific conversations at the end
+          if(dm.character() == "dustman") {
+            for(int i = 0; i < NUM_CHAR_SPECIFIC_CONVOS; i++) {
+                puts("i: "+i);
+                conversations.insertAt(characterSpecificindices[i], manConvo[i]);
+                conversationTextFaces.insertAt(characterSpecificindices[i], manConvoTextFaces[i]);
+                conversationTextSpriteMovements.insertAt(characterSpecificindices[i], manConversationTextSpriteMovements[i]);
+            }
+          } else if (dm.character() == "dustgirl") {
+              for(int i = 0; i < NUM_CONVERSATIONS - NUM_CHAR_SPECIFIC_CONVOS; i++) {
+                conversations.insertAt(characterSpecificindices[i], girlConvo[i]);
+                conversationTextFaces.insertAt(characterSpecificindices[i], girlConvoTextFaces[i]);
+                conversationTextSpriteMovements.insertAt(characterSpecificindices[i], girlConversationTextSpriteMovements[i]);
+            }
+          } else if (dm.character() == "dustkid") {
+              for(int i = 0; i < NUM_CONVERSATIONS - NUM_CHAR_SPECIFIC_CONVOS; i++) {
+                conversations.insertAt(characterSpecificindices[i], kidConvo[i]);
+                conversationTextFaces.insertAt(characterSpecificindices[i], kidConvoTextFaces[i]);
+                conversationTextSpriteMovements.insertAt(characterSpecificindices[i], kidConversationTextSpriteMovements[i]);
+            }
+          } else if (dm.character() == "dustworth") {
+              for(int i = 0; i < NUM_CONVERSATIONS - NUM_CHAR_SPECIFIC_CONVOS; i++) {
+                conversations.insertAt(characterSpecificindices[i], worthConvo[i]);
+                conversationTextFaces.insertAt(characterSpecificindices[i], worthConvoTextFaces[i]);
+                conversationTextSpriteMovements.insertAt(characterSpecificindices[i], worthConversationTextSpriteMovements[i]);
+            }
+          }
+      }
+      //TODO: possibly move textbox logic to sans object?
       // Advance text when light attack is pressed
       if(dm.light_intent() == 10) {
           if(inRangeToTalk && !isTalking) {
