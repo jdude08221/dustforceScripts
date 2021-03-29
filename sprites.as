@@ -207,13 +207,13 @@ class script : callback_base{
     //MAN
     array<string> mconvos0 = {
         "you sure dress well for\nbein' a janitor.", 
-        "the blue really gives off\n'boring all-arounder' vibes.",
+        "the blue really gives off\n'boring all-rounder' vibes.",
         "just my style."
     };
     array<string> mconvos1 = {
         "you also know what they\nsay about people who\nwear blue.", 
-        "they are real 'lady killers'.", 
-        "probably not smart to\noutwardly confess somthin'\nlike that though.",
+        "they are real 'lady killers.'", 
+        "probably not smart to\noutwardly confess somethin'\nlike that though.",
         "you don't have to worry\nabout me wearin' it though,\nskeletons can't go to jail.",
         "at least i've never seen it\nhappen."
     };
@@ -221,9 +221,9 @@ class script : callback_base{
         "i'm just joking though,\ni know you are a good guy.",
         "heck, you have spent all\nthis time here keepin' me\ncompany.",
         "besides, you and i both know\nall your records are clean...",
-        "unless you are talking about\nany% which in that case uh...",
+        "unless you are talking\nabout any% in which\ncase uh...",
         "i guess your records are...\nfast?",
-        "oh they aren't fast either?",
+        "oh, they aren't fast either?",
         "well i guess you are going\nto jail then."
     };
 
@@ -253,18 +253,18 @@ class script : callback_base{
         "cleaning ain't my style."};
     array<string> gconvos1 = {
         "your shoes look nicer than\nanother guy's who blew by\njust the other day.",
-        "didn't get his name,\nhad blue pants,\nwith a big pink nose?",
+        "didn't get his name.\nhad blue pants,\nwith a big pink nose?",
         "you know 'em?",
         "anyways, seems smarter to\nwear good shoes while\ncleaning to avoid slippin'.",
-        "i mean you are a janitor\nso that makes sense and all,\nwith the wet floors.",
+        "i mean you are a janitor\nso that makes sense what with\nthe the wet floors and all.",
         "i'll stick with my shoes\nthough...",
         "even if they are rather\nbare-bones."};
     array<string> gconvos2 = {
         "do ya ever think about\nwhat would happen if we\ndidn't exist in this game?",
         "on second thought, i don't\nthink much would change.",
-        "i'm not even from here\nand for you...",
+        "i'm not even from here,\nand as for you...",
         "i don't think the leader-\nboards would be much\ndifferent.",
-        "guess thats the curse\nof being a copycat."};
+        "guess that's the curse\nof being a copycat."};
 
     girlConvo[0] = gconvos0;
     girlConvo[1] = gconvos1;
@@ -295,7 +295,7 @@ class script : callback_base{
     array<string> kconvos1 = {
         "ya know, i guess you seem\npretty wild too.",
         "jumpin' all over the place\nwith those pom-poms and\nyour beret.",
-        "why do kids always have\nto be the scary ones."
+        "why do kids always have\nto be the scary ones?"
     };
     array<string> kconvos2 = {
         "must be nice not being an\nol' sack of bones like\nme and mr. vacuum though.",
@@ -303,7 +303,7 @@ class script : callback_base{
         "though i guess somehow you\nare employed at 12...\nor however old you are.",
         "still, must feel good.\nhaving energy and all that.",
         "don't worry yourself over\ngetting old though, 'cause as\nmy momma always said...",
-        "'with age comes jump height'.",
+        "'with age comes jump height.'",
         "not sure what she meant by\nthat.",
         "because i'm pretty sure i'm\nnot programmed to jump."
     };
@@ -330,15 +330,16 @@ class script : callback_base{
 
     //WORTH
     array<string> wconvos0 = {
-        "killer 'stache old-timer,\nyou must take good care of\nthat thing",
-        "from self experience, i can\ntell if someone is skilled\nat facial hair maintanence.",
-        "been working on my clean-\nshaven look myself recently.",
-        "it's hard work but i make\nsacrifices for style."};
+        "killer 'stache, old-timer.\nyou must take good care of\nthat thing.",
+        "i can tell from experience\nwhen someone is skilled at\nfacial hair maintanence.",
+        "'matter of fact, been\nworking on my clean-\nshaven look myself recently.",
+        "it's hard work, but i make\nsacrifices for style."
+    };
 
     array<string> wconvos1 = {
         "hey, i've been thinkin'...",
         "you and i should open\na barber shop.",
-        "with my looks and your\ncleaning ability we could\nmake some serious cash.",
+        "with my looks and your\ncleaning ability, we could\nmake some serious cash.",
         "just imagine it, you would be\ncutting the hair, doing the\ncleaning, paying the bills...",
         "while i could be in the\nback watching tv and\neating snacks.",
         "just call me if you are\ninterested."
@@ -348,10 +349,11 @@ class script : callback_base{
         "don't wanna be weird but,\nyou are lookin' pretty good\nfor someone your age.",
         "how do you do it?\ndiet?\nexercise?",
         "i'm just glad i don't\nneed to stress over all\nthat stuff.",
-        "as they say:\n'beauty is only skin deep'",
+        "as they say:\n'beauty is only skin deep'.",
         "so i must be a real looker.",
         "wait...",
-        "actually forget i even\nsaid that."};
+        "actually, forget i even\nsaid that."
+    };
     worthConvo[0] = wconvos0;
     worthConvo[1] = wconvos1;
     worthConvo[2] = wconvos2;
@@ -379,7 +381,7 @@ class script : callback_base{
     array<string> conversation3 = {
         "you sure don't like talkin'.",
         "that's alright though, you\ndon't need to talk to crack\na smile...",
-        "...oh you don't smile either?",
+        "...oh, you don't smile either?",
         "well in that case, you\ndon't have to talk or smile\nto uh...",
         "not do those things."};
     
