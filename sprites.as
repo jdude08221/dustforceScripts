@@ -217,22 +217,30 @@ class script : callback_base{
         "you don't have to worry\nabout me wearin' it though,\nskeletons can't go to jail.",
         "at least i've never seen it\nhappen."
     };
-    array<string> mconvos2 = {""};
+    array<string> mconvos2 = {
+        "i'm just joking though,\ni know you are a good guy.",
+        "heck, you have spent all\nthis time here keepin' me\ncompany.",
+        "besides, you and i both know\nall your records are clean...",
+        "unless you are talking about\nany% which in that case uh...",
+        "i guess your records are...\nfast?",
+        "oh they aren't fast either?",
+        "well i guess you are going\nto jail then."
+    };
 
     manConvo[0] = mconvos0;
     manConvo[1] = mconvos1;
     manConvo[2] = mconvos2;
 
     array<string> mconvoTextFaces0 = {"bface1", "bface0", "bface3"};
-    array<string> mconvoTextFaces1 = {"bface0","bface3","bface1","bface9","bface1"};
-    array<string> mconvoTextFaces2 = {"bface0"};
+    array<string> mconvoTextFaces1 = {"bface0", "bface3", "bface1", "bface9", "bface1"};
+    array<string> mconvoTextFaces2 = {"bface1", "bface9", "bface8", "bface1", "bface8", "bface7", "bface0"};
     manConvoTextFaces[0] = mconvoTextFaces0;
     manConvoTextFaces[1] = mconvoTextFaces1;
     manConvoTextFaces[2] = mconvoTextFaces2;
 
     array<int> mConversationTextSpriteMovements0 = {state_types::idle, state_types::idle, state_types::shrug0};
     array<int> mConversationTextSpriteMovements1 = {state_types::idle, state_types::idle, state_types::idle, state_types::shrug0,state_types::shrug1};
-    array<int> mConversationTextSpriteMovements2 = {state_types::idle};
+    array<int> mConversationTextSpriteMovements2 = {state_types::idle, state_types::shrug0, state_types::shrug1, state_types::idle, state_types::idle, state_types::idle, state_types::shrug0};
     manConversationTextSpriteMovements[0] = mConversationTextSpriteMovements0;
     manConversationTextSpriteMovements[1] = mConversationTextSpriteMovements1;
     manConversationTextSpriteMovements[2] = mConversationTextSpriteMovements2;
@@ -245,13 +253,18 @@ class script : callback_base{
         "cleaning ain't my style."};
     array<string> gconvos1 = {
         "your shoes look nicer than\nanother guy's who blew by\njust the other day.",
-        "blue pants,\nwith a big pink nose?",
+        "didn't get his name,\nhad blue pants,\nwith a big pink nose?",
         "you know 'em?",
         "anyways, seems smarter to\nwear good shoes while\ncleaning to avoid slippin'.",
         "i mean you are a janitor\nso that makes sense and all,\nwith the wet floors.",
         "i'll stick with my shoes\nthough...",
         "even if they are rather\nbare-bones."};
-    array<string> gconvos2 = {""};
+    array<string> gconvos2 = {
+        "do ya ever think about\nwhat would happen if we\ndidn't exist in this game?",
+        "on second thought, i don't\nthink much would change.",
+        "i'm not even from here\nand for you...",
+        "i don't think the leader-\nboards would be much\ndifferent.",
+        "guess thats the curse\nof being a copycat."};
 
     girlConvo[0] = gconvos0;
     girlConvo[1] = gconvos1;
@@ -259,14 +272,14 @@ class script : callback_base{
 
     array<string> gConvoTextFaces0 = {"bface0", "bface8", "bface7", "bface1", "bface3"};
     array<string> gConvoTextFaces1 = {"bface0", "bface7", "bface8", "bface1", "bface7", "bface1", "bface3"};
-    array<string> gConvoTextFaces2 = {"bface0"};
+    array<string> gConvoTextFaces2 = {"bface0", "bface7", "bface3", "bface8", "bface1"};
     girlConvoTextFaces[0] = gConvoTextFaces0;
     girlConvoTextFaces[1] = gConvoTextFaces1;
     girlConvoTextFaces[2] = gConvoTextFaces2;
 
     array<int> gConversationTextSpriteMovements0 = {state_types::idle, state_types::shrug1, state_types::idle, state_types::idle, state_types::shrug0};
     array<int> gConversationTextSpriteMovements1 = {state_types::idle, state_types::idle, state_types::shrug1, state_types::idle, state_types::idle, state_types::idle, state_types::shrug0};
-    array<int> gConversationTextSpriteMovements2 = {state_types::idle};
+    array<int> gConversationTextSpriteMovements2 = {state_types::idle, state_types::idle, state_types::shrug0, state_types::shrug1, state_types::idle};
     girlConversationTextSpriteMovements[0] = gConversationTextSpriteMovements0;
     girlConversationTextSpriteMovements[1] = gConversationTextSpriteMovements1;
     girlConversationTextSpriteMovements[2] = gConversationTextSpriteMovements2;
