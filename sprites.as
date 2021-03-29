@@ -316,14 +316,48 @@ class script : callback_base{
     kidConversationTextSpriteMovements[2] = kConversationTextSpriteMovements2;
 
     //WORTH
-    array<string> wconvos0 = {""};
-    worthConvo[0] = wconvos0;
-    
-    array<string> wConvoTextFaces = {""};
-    worthConvoTextFaces[0] = wConvoTextFaces;
+    array<string> wconvos0 = {
+        "killer 'stache old-timer,\nyou must take good care of\nthat thing",
+        "from self experience, i can\ntell if someone is skilled\nat facial hair maintanence.",
+        "been working on my clean-\nshaven look myself recently.",
+        "it's hard work but i make\nsacrifices for style."};
 
-    array<int> wConversationTextSpriteMovements = {0};
-    worthConversationTextSpriteMovements[0] = wConversationTextSpriteMovements;
+    array<string> wconvos1 = {
+        "hey, i've been thinkin'...",
+        "you and i should open\na barber shop.",
+        "with my looks and your\ncleaning ability we could\nmake some serious cash.",
+        "just imagine it, you would be\ncutting the hair, doing the\ncleaning, paying the bills...",
+        "while i could be in the\nback watching tv and\neating snacks.",
+        "just call me if you are\ninterested."
+    };
+
+    array<string> wconvos2 = {
+        "don't wanna be weird but,\nyou are lookin' pretty good\nfor someone your age.",
+        "how do you do it?\ndiet?\nexercise?",
+        "i'm just glad i don't\nneed to stress over all\nthat stuff.",
+        "as they say:\n'beauty is only skin deep'",
+        "so i must be a real looker.",
+        "wait...",
+        "actually forget i even\nsaid that."};
+    worthConvo[0] = wconvos0;
+    worthConvo[1] = wconvos1;
+    worthConvo[2] = wconvos2;
+
+    array<string> wConvoTextFaces0 = {"bface3", "bface8", "bface1", "bface9"};
+    array<string> wConvoTextFaces1 = {"bface0", "bface7", "bface8", "bface1", "bface8", "bface3"};
+    array<string> wConvoTextFaces2 = {"bface7", "bface8", "bface1", "bface7", "bface9", "bface2", "bface1"};
+
+    worthConvoTextFaces[0] = wConvoTextFaces0;
+    worthConvoTextFaces[1] = wConvoTextFaces1;
+    worthConvoTextFaces[2] = wConvoTextFaces2;
+
+    array<int> wConversationTextSpriteMovements0 = {state_types::shrug0, state_types::idle, state_types::idle, state_types::shrug0};
+    array<int> wConversationTextSpriteMovements1 = {state_types::idle, state_types::idle, state_types::idle, state_types::idle, state_types::idle, state_types::shrug0};
+    array<int> wConversationTextSpriteMovements2 = {state_types::idle, state_types::shrug1, state_types::idle, state_types::idle, state_types::shrug0, state_types::idle, state_types::idle};
+
+    worthConversationTextSpriteMovements[0] = wConversationTextSpriteMovements0;
+    worthConversationTextSpriteMovements[1] = wConversationTextSpriteMovements1;
+    worthConversationTextSpriteMovements[2] = wConversationTextSpriteMovements2;
 
     //Sans converstaions here
     array<string> conversation0 = {"this game looks cool...","what?","what else did you think\ni would say?"};
