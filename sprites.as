@@ -778,23 +778,22 @@ class script : callback_base{
         }
         draw_frame_count++;
         sansAnimator.walkRightDark(draw_frame_count, frame_count, spr, X1, Y1, X2, Y2, g);
-
-        //Set up converstaions... Eventually move above to be 
-        
-
-
+ 
         if(!closeTextbox && isTalking) {
-            //TODO: set up animator to cycle through conversations
+            //TODO: if there is going to be a point where it teleports the player here, use conversationCount to determine when it should happen.
             sansAnimator.say(g, spr, conversations[conversationCount], conversationTextFaces[conversationCount], conversationTextSpriteMovements[conversationCount], draw_frame_count, frame_count);
         } else if(closeTextbox) {
-            conversationCount = (conversationCount + 1) % (NUM_CONVERSATIONS);
+            conversationCount++;
             isTalking = false;
             closeTextbox = false;
-            if(!appleMoved) {
+
+            if(!appleMoved && conversationCount == NUM_CONVERSATIONS) {
                 appleMoved = true;
                 sansApple.y(AppleY1);
                 sansApple.x(AppleX1);
             }
+
+            conversationCount %= NUM_CONVERSATIONS;
         } 
     }
 
