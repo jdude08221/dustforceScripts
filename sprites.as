@@ -139,7 +139,7 @@ const string EMBED_text0094 = "sanstext/sansFontsSpritesheet_0094.png";
 //Sound Effects
 const string EMBED_sound1 = "undertale_sounds/000029e6.ogg"; 
 const string EMBED_sound2 = "undertale_sounds/mus_muscle.ogg"; 
-const int NUM_CONVERSATIONS = 7; //TOTAL number of conversations including character specific ones
+const int NUM_CONVERSATIONS = 8; //TOTAL number of conversations including character specific ones
 const int NUM_CHAR_SPECIFIC_CONVOS = 3;
 class script : callback_base{
   scene@ g;
@@ -201,7 +201,7 @@ class script : callback_base{
 
     //TODO: determine where we want these conversations. As of now this is set up to just tack all character specific convos to the end
     for(int i = 0; i < NUM_CHAR_SPECIFIC_CONVOS; i++) {
-        characterSpecificindices[i] = NUM_CONVERSATIONS - NUM_CHAR_SPECIFIC_CONVOS + i;
+        characterSpecificindices[i] = NUM_CONVERSATIONS - 1 - NUM_CHAR_SPECIFIC_CONVOS + i;
     }
 
     //MAN
@@ -256,7 +256,7 @@ class script : callback_base{
         "didn't get his name.\nhad blue pants,\nwith a big pink nose?",
         "you know 'em?",
         "anyways, seems smarter to\nwear good shoes while\ncleaning to avoid slippin'.",
-        "i mean you are a janitor\nso that makes sense what with\nthe the wet floors and all.",
+        "i mean you are a janitor so\nthat makes sense what with\nthe the wet floors and all.",
         "i'll stick with my shoes\nthough...",
         "even if they are rather\nbare-bones."};
     array<string> gconvos2 = {
@@ -384,12 +384,23 @@ class script : callback_base{
         "...oh, you don't smile either?",
         "well in that case, you\ndon't have to talk or smile\nto uh...",
         "not do those things."};
-    
+
+    //These conversations should be added after the character specific ones
+    array<string> conversation4 = {
+        "anyways, i think it's time\nwe part ways.",
+        "it was good talking at ya.",
+        "oh, and before i forget.",
+        "i found a disgusting, hard,\nblack apple over in the\ncorner there.",
+        "and after getting to know\nyou so well...",
+        "i thought givin' it to\nyou is the least i could do.",
+        "enjoy.",
+    };
+
     conversations[0] = conversation0;
     conversations[1] = conversation1;
     conversations[2] = conversation2;
     conversations[3] = conversation3;
-
+    conversations[NUM_CONVERSATIONS - 1] = conversation4;
     conversationCount = 0;
 
 
@@ -397,21 +408,25 @@ class script : callback_base{
     array<string> conversationTextFaces1 = {"bface1"};
     array<string> conversationTextFaces2 = {"bface8"};
     array<string> conversationTextFaces3 = {"bface0","bface3","bface7","bface8","bface9"};
+    array<string> conversationTextFaces4 = {"bface4", "bface9", "bface7", "bface1", "bface7", "bface8", "bface3"};
 
     conversationTextFaces[0] = conversationTextFaces0;
     conversationTextFaces[1] = conversationTextFaces1;
     conversationTextFaces[2] = conversationTextFaces2;
     conversationTextFaces[3] = conversationTextFaces3;
+    conversationTextFaces[NUM_CONVERSATIONS - 1] = conversationTextFaces4;
 
     array<int> conversationTextSpriteMovements0 = {state_types::idle,state_types::shrug1,state_types::shrug0};
     array<int> conversationTextSpriteMovements1 = {state_types::idle};
     array<int> conversationTextSpriteMovements2 = {state_types::idle};
     array<int> conversationTextSpriteMovements3 = {state_types::idle, state_types::shrug0,state_types::idle,state_types::idle,state_types::shrug0};
+    array<int> conversationTextSpriteMovements4 = {state_types::eyesClosed, state_types::shrug0, state_types::idle, state_types::idle, state_types::idle, state_types::shrug1, state_types::shrug0};
 
     conversationTextSpriteMovements[0] = conversationTextSpriteMovements0;
     conversationTextSpriteMovements[1] = conversationTextSpriteMovements1;
     conversationTextSpriteMovements[2] = conversationTextSpriteMovements2;
     conversationTextSpriteMovements[3] = conversationTextSpriteMovements3;
+    conversationTextSpriteMovements[NUM_CONVERSATIONS - 1] = conversationTextSpriteMovements4;
 
     add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
     add_broadcast_receiver('OnMyCustomEventNameTwo', this, 'OnMyCustomEventNameTwo');
@@ -724,6 +739,12 @@ class script : callback_base{
       if(!conversationsSetup) {
           conversationsSetup = true;
           //TODO determine how the index should work possibly? as of now just puts all character specific conversations at the end
+        
+          //Yeah this is jank, move on
+          array<string> temp1 = conversations[NUM_CONVERSATIONS-1];
+          array<string> temp2 = conversationTextFaces[NUM_CONVERSATIONS-1];
+          array<int> temp3 = conversationTextSpriteMovements[NUM_CONVERSATIONS-1];
+
           for(int i = 0; i < NUM_CHAR_SPECIFIC_CONVOS; i++) {  
             if(dm.character() == "dustman") {
                 conversations.insertAt(characterSpecificindices[i], manConvo[i]);
@@ -743,6 +764,10 @@ class script : callback_base{
                 conversationTextSpriteMovements.insertAt(characterSpecificindices[i], worthConversationTextSpriteMovements[i]);
             }
           }
+
+          conversations[NUM_CONVERSATIONS-1] = temp1;
+          conversationTextFaces[NUM_CONVERSATIONS-1] = temp2;
+          conversationTextSpriteMovements[NUM_CONVERSATIONS-1] = temp3;
       }
       //TODO: possibly move textbox logic to sans object?
       // Advance text when light attack is pressed
@@ -784,16 +809,19 @@ class script : callback_base{
             sansAnimator.say(g, spr, conversations[conversationCount], conversationTextFaces[conversationCount], conversationTextSpriteMovements[conversationCount], draw_frame_count, frame_count);
         } else if(closeTextbox) {
             conversationCount++;
+            
             isTalking = false;
             closeTextbox = false;
 
-            if(!appleMoved && conversationCount == NUM_CONVERSATIONS) {
+            if(!appleMoved && conversationCount >= NUM_CONVERSATIONS) {
                 appleMoved = true;
                 sansApple.y(AppleY1);
                 sansApple.x(AppleX1);
             }
-
-            conversationCount %= NUM_CONVERSATIONS;
+            
+            if(conversationCount >= NUM_CONVERSATIONS) {
+                conversationCount--;
+            }
         } 
     }
 
@@ -1005,7 +1033,8 @@ class sansSprite : callback_base{
             
             if(frameCounter >= revealTime) {
                 puts("play");
-                @sansMusic = g.play_script_stream(EMBED_sound2.split(".")[0], 3, 0, 0, true, 1 );
+                @sansMusic = g.play_script_stream(EMBED_sound2.split(".")[0], 3, X, Y, true, 1 );
+                sansMusic.positional(true);
                 frameCounter = 0;
                 lastPhysFrameAnim = -1;
                 state = state_types::idle;
