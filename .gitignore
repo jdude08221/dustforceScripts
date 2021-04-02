@@ -184,3 +184,5 @@ lib/utils/date.cpp
 lib/utils/print_vars.cpp
 lib/utils/Random.cpp
 lib/==angelscript.cpp
+music_replace.cpp
+one_time_audio.cpp
