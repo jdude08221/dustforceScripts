@@ -567,7 +567,7 @@ class script : callback_base{
     }
   }  
 
-    void OnMyCustomEventNameTwo(string id, message@ msg) {
+  void OnMyCustomEventNameTwo(string id, message@ msg) {
     if(msg.get_string('start') == 'true') {  
         startScene = true;
     }
@@ -889,8 +889,8 @@ class sansSprite : callback_base{
 
     sansSprite(array<string>towardSprites, array<string>darkWalkingSprites, array<string>faceSprites, array<string>walkingSpritesIn, array<string>shrugSprites, dictionary fontSprites, sprites@ spr) {
         //Walking animation speeds
-        walkSpeed = 2;
-        walkAnimateSpeed = 75;
+        walkSpeed = 2.5;
+        walkAnimateSpeed = 21;
         
 
         darkWalkingR = darkWalkingSprites;
@@ -984,7 +984,8 @@ class sansSprite : callback_base{
             return;
         }
 
-        if(endX == X1) {
+        //TODO: this is pretty jank and is x,y dependent
+        if(endX <= X1) {
             curX = endX;
             curY = startY;
             reveal(frame, physFrame, spr, endX, startY, g);
@@ -999,11 +1000,18 @@ class sansSprite : callback_base{
         spr.draw_world(18, 1, darkWalkingR[curFrame], 0, 1, X1, (((curFrame+1)%2)*4)+startY,
                        0, .8, .8, colour);
 
-        if(X1 != endX && frame%walkSpeed==0) {
-            X1++;
+        if(physFrame == lastPhysFrame) {
+            return;
         }
 
-        if(frame%walkAnimateSpeed == 0) {
+        lastPhysFrame = physFrame;
+
+        //TODO: this is pretty jank and is x,y dependent
+        if(X1 <= endX) {
+            X1+=walkSpeed;
+        }
+
+        if(physFrame % walkAnimateSpeed == 0) {
             curFrame = curFrame + 1 >= darkWalkingR.size() ? 0 : curFrame+1;
         }
     }
