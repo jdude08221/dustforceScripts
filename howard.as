@@ -245,15 +245,15 @@ class script : callback_base{
 
     if(frame_count % scaleSpeed == 0) {
       volume += .0001;
-      if(scale < 15) {
-        scale+=.0015;
+      if(scale < 8) {
+        scale+=.01;
       }
     }
   }
 
   void editor_draw(float subframe) {
     if(showSprite) {
-      spr.draw_world(layer, 1, framesGlobal[0], 0, 1, X1, Y1, 0, 1, 1, 0xFFFFFFFF);
+      spr.draw_world(layer, 1, framesGlobal[0], 0, 1, X1, Y1, 0, .1, .1, 0xFFFFFFFF);
     }
   }
 
@@ -263,7 +263,7 @@ class script : callback_base{
 
   void draw(float subframe) {
     if(!playing) {
-      @badSong = g.play_script_stream(EMBED_sound1.split(".")[0], 3, 0, 0, true, 1 );
+      @badSong = g.play_script_stream(EMBED_sound1.split(".")[0], 1, 0, 0, true, 1 );
       playing = true;
     }
     
