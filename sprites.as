@@ -575,148 +575,41 @@ class script : callback_base{
 
   void build_sprites(message@ msg) {
     //Build walking right in the dark sprites
-    msg.set_string("toward0","toward0");
-    msg.set_string("toward1","toward1");
-    msg.set_string("toward2","toward2");
-    msg.set_string("toward3","toward3");
-    msg.set_string("toward4","toward4");
+    for(int i = 0; i < 5; i++) {
+        msg.set_string("toward"+i,"toward"+i);
+    }
 
     //Build walking right in the dark sprites
-    msg.set_string("dark0r","dark0r");
-    msg.set_string("dark1r","dark1r");
-    msg.set_string("dark2r","dark2r");
-    msg.set_string("dark3r","dark3r");
+    for(int i = 0; i < 4; i++) {
+        msg.set_string("dark" + i + "r","dark" + i + "r");
+    }
 
     //Build walking right sprites
-    msg.set_string("walk0r","walk0r");
-    msg.set_string("walk1r","walk1r");
-    msg.set_string("walk2r","walk2r");
-    msg.set_string("walk3r","walk3r");
+    for(int i = 0; i < 4; i++) {
+        msg.set_string("walk" + i + "r","walk" + i + "r");
+    }
 
     //Build shrug sprites
     msg.set_string("shrug0","shrug0");
     msg.set_string("shrug1","shrug1");
 
     //Build face sprites
-    msg.set_string("bface0","bface0");
-    msg.set_string("bface1","bface1");
-    msg.set_string("bface2","bface2");
-    msg.set_string("bface3","bface3");
-    msg.set_string("bface4","bface4");
-    msg.set_string("bface5","bface5");
-    msg.set_string("bface6","bface6");
-    msg.set_string("bface7","bface7");
-    msg.set_string("bface8","bface8");
-    msg.set_string("bface9","bface9");
-    msg.set_string("bface10","bface10");
-    msg.set_string("bface11","bface11");
-    msg.set_string("bface12","bface12");
-    msg.set_string("bface13","bface13");
-    msg.set_string("bface14","bface14");
+    for(int i = 0; i < 15; i++) {
+        msg.set_string("bface"+i,"bface"+i);
+    }
 
     //Build font sprites
-    msg.set_string("text0000","text0000");
-    msg.set_string("text0001","text0001");
-    msg.set_string("text0002","text0002");
-    msg.set_string("text0003","text0003");
-    msg.set_string("text0004","text0004");
-    msg.set_string("text0005","text0005");
-    msg.set_string("text0006","text0006");
-    msg.set_string("text0007","text0007");
-    msg.set_string("text0008","text0008");
-    msg.set_string("text0009","text0009");
-    msg.set_string("text0010","text0010");
-    msg.set_string("text0011","text0011");
-    msg.set_string("text0012","text0012");
-    msg.set_string("text0013","text0013");
-    msg.set_string("text0014","text0014");
-    msg.set_string("text0015","text0015");
-    msg.set_string("text0016","text0016");
-    msg.set_string("text0017","text0017");
-    msg.set_string("text0018","text0018");
-    msg.set_string("text0019","text0019");
-    msg.set_string("text0020","text0020");
-    msg.set_string("text0021","text0021");
-    msg.set_string("text0022","text0022");
-    msg.set_string("text0023","text0023");
-    msg.set_string("text0024","text0024");
-    msg.set_string("text0025","text0025");
-    msg.set_string("text0026","text0026");
-    msg.set_string("text0027","text0027");
-    msg.set_string("text0028","text0028");
-    msg.set_string("text0029","text0029");
-    msg.set_string("text0030","text0030");
-    msg.set_string("text0031","text0031");
-    msg.set_string("text0032","text0032");
-    msg.set_string("text0033","text0033");
-    msg.set_string("text0034","text0034");
-    msg.set_string("text0035","text0035");
-    msg.set_string("text0036","text0036");
-    msg.set_string("text0037","text0037");
-    msg.set_string("text0038","text0038");
-    msg.set_string("text0039","text0039");
-    msg.set_string("text0040","text0040");
-    msg.set_string("text0041","text0041");
-    msg.set_string("text0042","text0042");
-    msg.set_string("text0043","text0043");
-    msg.set_string("text0044","text0044");
-    msg.set_string("text0045","text0045");
-    msg.set_string("text0046","text0046");
-    msg.set_string("text0047","text0047");
-    msg.set_string("text0048","text0048");
-    msg.set_string("text0049","text0049");
-    msg.set_string("text0050","text0050");
-    msg.set_string("text0051","text0051");
-    msg.set_string("text0052","text0052");
-    msg.set_string("text0053","text0053");
-    msg.set_string("text0054","text0054");
-    msg.set_string("text0055","text0055");
-    msg.set_string("text0056","text0056");
-    msg.set_string("text0057","text0057");
-    msg.set_string("text0058","text0058");
-    msg.set_string("text0059","text0059");
-    msg.set_string("text0060","text0060");
-    msg.set_string("text0061","text0061");
-    msg.set_string("text0062","text0062");
-    msg.set_string("text0063","text0063");
-    msg.set_string("text0064","text0064");
-    msg.set_string("text0065","text0065");
-    msg.set_string("text0066","text0066");
-    msg.set_string("text0067","text0067");
-    msg.set_string("text0068","text0068");
-    msg.set_string("text0069","text0069");
-    msg.set_string("text0070","text0070");
-    msg.set_string("text0071","text0071");
-    msg.set_string("text0072","text0072");
-    msg.set_string("text0073","text0073");
-    msg.set_string("text0074","text0074");
-    msg.set_string("text0075","text0075");
-    msg.set_string("text0076","text0076");
-    msg.set_string("text0077","text0077");
-    msg.set_string("text0078","text0078");
-    msg.set_string("text0079","text0079");
-    msg.set_string("text0080","text0080");
-    msg.set_string("text0081","text0081");
-    msg.set_string("text0082","text0082");
-    msg.set_string("text0083","text0083");
-    msg.set_string("text0084","text0084");
-    msg.set_string("text0085","text0085");
-    msg.set_string("text0086","text0086");
-    msg.set_string("text0087","text0087");
-    msg.set_string("text0088","text0088");
-    msg.set_string("text0089","text0089");
-    msg.set_string("text0090","text0090");
-    msg.set_string("text0091","text0091");
-    msg.set_string("text0092","text0092");
-    msg.set_string("text0093","text0093");
-    msg.set_string("text0094","text0094");
-    msg.set_string("text0095","text0095");
-    msg.set_string("text0096","text0096");
-    msg.set_string("text0097","text0097");
-    msg.set_string("text0098","text0098");
-    msg.set_string("text0099","text0099");
-    msg.set_string("text0100","text0100");
-    msg.set_string("text0101","text0101");
+    for(int i = 0; i < 10; i++) {
+        msg.set_string("text000"+i,"text000"+i);
+    }
+
+    for(int i = 10; i < 100; i++) {
+        msg.set_string("text00"+i,"text00"+i);
+    }
+
+    for(int i = 100; i < 102; i++) {
+        msg.set_string("text0"+i,"text0"+i);
+    }
   }
 
   void build_sounds(message@ msg) {
@@ -806,7 +699,8 @@ class script : callback_base{
  
         if(!closeTextbox && isTalking) {
             //TODO: if there is going to be a point where it teleports the player here, use conversationCount to determine when it should happen.
-            sansAnimator.say(g, spr, conversations[conversationCount], conversationTextFaces[conversationCount], conversationTextSpriteMovements[conversationCount], draw_frame_count, frame_count);
+            sansAnimator.say(g, spr, conversations[conversationCount], conversationTextFaces[conversationCount], 
+                             conversationTextSpriteMovements[conversationCount], draw_frame_count, frame_count);
         } else if(closeTextbox) {
             conversationCount++;
             
@@ -881,7 +775,6 @@ class sansSprite : callback_base{
     audio@ sansMusic;
     bool skipSound;
     float AsteriskStart;
-    int curAction;
     int state;
 
     float curX, curY;
@@ -924,7 +817,6 @@ class sansSprite : callback_base{
         lastPhysFrameAnim = -1;
         frameCounter = -1;
         revealTime = 120;
-        curAction = 0;
 
         @lastSound = null;
         skipSound = false;
@@ -1094,7 +986,6 @@ class sansSprite : callback_base{
         //San's face
         spr.draw_hud(19, 19, textFaces[curTextIndex], 1, 1, -400, 260, 0, .75, .75, colour);
 
-        //TODO: possibly match faces to poses during text?  not sure
         state = sprPose[curTextIndex];
         //Asterisk 
         spr.draw_hud(20, 20, string(font['*']), 1, 1, AsteriskStart, startTextY, 0, charScale, charScale, colour); 
@@ -1175,11 +1066,11 @@ class sansSprite : callback_base{
             curCharacter = string(text[curTextIndex]).size()-1;
         } else {
             // if we are on the last character and at the end of the textboxes, close the textbox
-            if(curTextIndex == text.size()-1) {
+            if(curTextIndex == text.size() - 1) {
                 closeTextbox();
                 return true;
             } else { //advance text
-                curCharacter = -1;
+                curCharacter = - 1;
                 curTextIndex++;
             }
         }
