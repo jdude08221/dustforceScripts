@@ -186,3 +186,4 @@ lib/utils/Random.cpp
 lib/==angelscript.cpp
 music_replace.cpp
 one_time_audio.cpp
+layer_controller.cpp
