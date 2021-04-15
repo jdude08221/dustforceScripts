@@ -187,3 +187,6 @@ lib/==angelscript.cpp
 music_replace.cpp
 one_time_audio.cpp
 layer_controller.cpp
+cloneable_trigger_base.cpp
+sublayers.txt
+copy.as
