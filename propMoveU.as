@@ -1,5 +1,6 @@
 #include "../lib/math/Line.cpp";
-
+#include "../lib/props/common.cpp"
+#include "../lib/drawing/Sprite.cpp"
 //TODO: update logic to handle case where trigger is unloaded, and player hits checkpoint
 const int BASE_SPAWN_RATE = 8000;
 const uint WHITE = 0xFFFFFFFF; 
@@ -17,7 +18,6 @@ class script : callback_base {
   [hidden]array<SpawnHelper@> savedClouds;
   bool exists = false;
   array<int> triggerIDs;
-  bool lvlStart = false;
   script() {
     @g = get_scene();
     srand(timestamp_now());
@@ -29,14 +29,7 @@ class script : callback_base {
       
   }
 
-  void step(int entities) {
-    if(!lvlStart) {
-        message@ msg = create_message();
-        msg.set_int('lvlstart', 1);
-        puts("message");
-        broadcast_message('OnMyCustomEventNameAck', msg);
-    }
-      
+  void step(int entities) {  
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
       
@@ -131,9 +124,6 @@ class script : callback_base {
   }
 
   void OnMyCustomEventName(string id, message@ msg) {
-    if(msg.get_int('triggerStarted') == 1) {
-        lvlStart = true;
-    }
     if(msg.get_string('triggerType') == 'cloudMove') {
       SpawnHelper@ tmpSH = SpawnHelper();
       if(@tmpSH == null) {
@@ -198,11 +188,11 @@ class CloudTrigger : trigger_base, callback_base {
   //TODO: remove?
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
-  [hidden] prop@ p1;
-  [hidden] prop@ p2;
+  [hidden] string sprSet, sprName;
   scene@ g;
   scripttrigger@ self;
-  
+  Sprite spr1, spr2;
+
   CloudTrigger() {
     @g = get_scene();
     position = speed = 0;
@@ -241,43 +231,23 @@ class CloudTrigger : trigger_base, callback_base {
           g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, GREEN_TRANSPARENT);
       }
     }
-    if((@p1 == null || @p2 == null) && this.self.editor_selected()) {
-        puts("1");
-        g.remove_prop(@p1);
-        g.remove_prop(@p2);
-        @p1 = null;
-        @p2 = null;
+    if(this.self.editor_selected()) {
         drawProps();
-    } else if(!this.self.editor_selected()) {
-        puts("2");
-        g.remove_prop(@p1);
-        g.remove_prop(@p2);
-        @p1 = null;
-        @p2 = null;
-    } else {
-        puts("3");
-        g.remove_prop(@p1);
-        g.remove_prop(@p2);
-        @p1 = null;
-        @p2 = null;
-        drawProps();
-    } 
+    }
   }
   void drawProps() {
-    propsDrawn = true;
-    //WORKING HERE
-    @p1 = create_prop();
-    @p2 = create_prop();    
-    initProp(@p1, true);
-    initProp(@p2, false);
-
-    g.add_prop(@p1);
-    g.add_prop(@p2);
+    spr1.draw(layer, sublayer, 0, palette, tX1, tY1, 0, 1, 1, WHITE);
+    spr2.draw(layer, sublayer, 0, palette, tX2, tY2, 0, 1, 1, WHITE);
   }
+
   void editor_step() {
     getMaxMinXY();
     getScale();
     scaleXY();
+    //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
+    sprite_from_prop(set, group, index, sprSet, sprName);
+	spr1.set(sprSet, sprName);
+    spr2.set(sprSet, sprName);
   }
 
 
@@ -296,7 +266,7 @@ class CloudTrigger : trigger_base, callback_base {
         //TODO: implement rotation?
 
         pr.x(side ? tX1 : tX2);   
-        pr.y(Y1);
+        pr.y(side ? tY1 : tY2);
   }
   void step() {
     if(sendMessage) {
@@ -437,17 +407,6 @@ class CloudTrigger : trigger_base, callback_base {
       sendMessage = false;
     } else if (msg.get_int('req') == 1){
       sendMessage = true;
-    }
-    if(msg.get_int('lvlstart') == 1) {
-      //Level has started, remove any unneeded props used for editor
-      message@ msg2 = create_message();
-      msg2.set_int('triggerStarted', 1);
-      broadcast_message('OnMyCustomEventName', msg2);
-
-      g.remove_prop(@p1);
-      g.remove_prop(@p2);
-      @p1 = null;
-      @p2 = null;
     }
   }
 }
