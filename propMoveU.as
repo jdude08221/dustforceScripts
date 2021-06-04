@@ -1,0 +1,490 @@
+#include "../lib/math/Line.cpp";
+
+//TODO: update logic to handle case where trigger is unloaded, and player hits checkpoint
+const int BASE_SPAWN_RATE = 8000;
+const uint WHITE = 0xFFFFFFFF; 
+const uint GREEN = 0xFF00FF00; 
+const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
+const uint GREEN_TRANSPARENT = 0x4A00FF00; 
+
+//18-i is scaled at (1-0.05*i) for 18-i >5
+//1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
+
+class script : callback_base {
+  [text]array<SpawnHelper@> spawnArr;
+  scene@ g;
+  int frame_cp;
+  [hidden]array<SpawnHelper@> savedClouds;
+  bool exists = false;
+  array<int> triggerIDs;
+  bool lvlStart = false;
+  script() {
+    @g = get_scene();
+    srand(timestamp_now());
+    add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
+    //override_stream_sizes(100, 8);
+  }
+
+  void on_level_start() {
+      
+  }
+
+  void step(int entities) {
+    if(!lvlStart) {
+        message@ msg = create_message();
+        msg.set_int('lvlstart', 1);
+        puts("message");
+        broadcast_message('OnMyCustomEventNameAck', msg);
+    }
+      
+    for(uint j = 0; j < spawnArr.length(); j++) {
+      SpawnHelper@ sh = spawnArr[j];
+      
+      if (!sh.exists) {
+        sh.exists = true;
+        prop @p = makeProp(@sh);
+        g.add_prop(@p);
+        sh.props.insertLast(@p);
+        sh.propids.insertLast(p.id());
+      }
+      
+      Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
+   
+      for(uint i = 0; i < sh.props.length(); i++) {
+        prop @pr = sh.props[i];
+        if(@pr == null) {
+          //puts("removed");
+          sh.props.removeAt(i);
+          sh.propids.removeAt(i);
+        } else if(sh.props[i].x() >= sh.maxX) {
+          sh.direction = -1;
+          pr.x(pr.x() + (sh.speed * sh.direction));
+          pr.y(propPath.getY(pr.x()));
+          //void draw_rectangle_world(uint layer, uint sub_layer, float x1, float y1,
+                                    //float x2, float y2, float rotation, uint colour);
+          //g.draw_rectangle_world(sh.layer, sh.sublayer, pr.x() - 5, pr.y() + 5, pr.x() + 5, pr.y() - 5, 0, WHITE);
+          //g.draw_line_world(sh.layer, 10, sh.X1, sh.Y1, sh.X2, sh.Y2, 5, 0x4AFFFFFF);
+          //puts("removed ids:" + sh.propids.length() + " props:" + sh.props.length());
+        } else if (sh.props[i].x() <= sh.minX) {
+          sh.direction = 1;
+          pr.x(pr.x() + (sh.speed * sh.direction));
+          pr.y(propPath.getY(pr.x()));
+         // g.draw_rectangle_world(sh.layer, sh.sublayer, pr.x() - 5, pr.y() + 5, pr.x() + 5, pr.y() - 5, 0, WHITE);
+         // g.draw_line_world(sh.layer, 10, sh.X1, sh.Y1, sh.X2, sh.Y2, 5, 0x4AFFFFFF);
+        }
+        else { 
+          pr.x(pr.x() + (sh.speed * sh.direction));
+          pr.y(propPath.getY(pr.x()));
+          //g.draw_rectangle_world(sh.layer, sh.sublayer, pr.x() - 5, pr.y() + 5, pr.x() + 5, pr.y() - 5, 0, WHITE);
+          //g.draw_line_world(sh.layer, 10, sh.X1, sh.Y1, sh.X2, sh.Y2, 5, 0x4AFFFFFF);
+        }
+      }
+    } 
+  }
+  
+  void checkpoint_save() { }
+
+  void checkpoint_load() {
+    for(uint j = 0; j < spawnArr.length(); j++) {
+      SpawnHelper@ sh = spawnArr[j];
+      puts("load ids:" + sh.propids.length() + " props:" + sh.props.length());
+      for(uint i = 0; i < sh.props.length(); i++) {
+        if(@sh.props[i] != null) {
+            @sh.props[i] = prop_by_id(sh.props[i].id());
+        }
+      }
+    }
+  }
+  
+  void editor_step() {
+    for(uint j = 0; j < spawnArr.length(); j++) {
+       SpawnHelper@ sh = spawnArr[j];
+       for(uint i = 0; i < sh.props.length(); i++) {
+        if(@sh.props[i] != null && @prop_by_id(sh.props[i].id()) != null) {
+          g.remove_prop(prop_by_id(sh.props[i].id()));
+          sh.props.removeAt(i);
+        }
+      }
+    }
+  }
+ 
+  prop@ makeProp(SpawnHelper@ sh) {
+    prop@ pr = create_prop();
+
+    //puts("makingProp: "+sh.set+" group: "+sh.group+" index: "+sh.index+" palette: "+sh.palette);
+    pr.layer(sh.layer);
+    pr.sub_layer(sh.sublayer);
+
+    pr.prop_set(sh.set);
+    pr.prop_group(sh.group);
+    pr.prop_index(sh.index);
+    pr.palette(sh.palette);
+
+    //TODO: implement scale
+    //pr.scale_x(sh.chosenCloud == 2 || sh.chosenCloud == 5 ? -1 : 1);
+
+    //TODO: implement rotation?
+    
+    pr.x(sh.start == 1 ? sh.X1 : sh.X2);   
+    pr.y(sh.Y1);
+    return @pr;
+  }
+
+  void OnMyCustomEventName(string id, message@ msg) {
+    if(msg.get_int('triggerStarted') == 1) {
+        lvlStart = true;
+    }
+    if(msg.get_string('triggerType') == 'cloudMove') {
+      SpawnHelper@ tmpSH = SpawnHelper();
+      if(@tmpSH == null) {
+        
+      }
+      
+      // Yeah I should have used a dictionary
+      for(uint i = 0; i < spawnArr.length(); i++) {
+        if(msg.get_string('triggerID') == spawnArr[i].triggerID) {
+          return;
+        }
+      }  
+      
+      tmpSH.speed = msg.get_int('speed');
+      tmpSH.layer = msg.get_int('layer');
+      tmpSH.sublayer = msg.get_int('sublayer');
+      tmpSH.set = msg.get_int('set');
+      tmpSH.group = msg.get_int('group');
+      tmpSH.index = msg.get_int('index');
+      tmpSH.palette = msg.get_int('palette');
+      tmpSH.start = msg.get_int('start');
+      tmpSH.setStart(tmpSH.start);
+      tmpSH.maxX = msg.get_float('maxX');
+      tmpSH.minX = msg.get_float('minX');
+      tmpSH.maxY = msg.get_float('maxY');
+      tmpSH.minY = msg.get_float('minY');
+      tmpSH.X1 = msg.get_float('X1');
+      tmpSH.X2 = msg.get_float('X2');
+      tmpSH.Y1 = msg.get_float('Y1');
+      tmpSH.Y2 = msg.get_float('Y2');
+      tmpSH.scale = msg.get_float('scale');
+      tmpSH.triggerID = msg.get_string('triggerID');
+      //puts("ID: " + tmpSH.triggerID);
+      spawnArr.insertLast(tmpSH);
+    }
+  }
+}
+
+
+
+class CloudTrigger : trigger_base, callback_base { 
+  [hidden]string name;
+  [text]int speed;
+  [text]int layer;
+  [text]int sublayer;
+  [text]bool showLines;
+
+  [text]int set;
+  [text]int group;
+  [text]int index;
+  [text]int palette;
+  [option,0:Right,1:Left] int start;
+  [hidden]int position;
+  [hidden] float Y1Backup;
+  [hidden] float Y1, Y2;
+  [hidden] bool propsDrawn;
+  [position,mode:world,layer:18,y:Y1] float X1;
+  [position,mode:world,layer:18,y:Y2] float X2;
+  [hidden] bool sendMessage;
+  [hidden] float maxX, minX, maxY, minY;
+  [hidden] float scale;
+  //TODO: remove?
+  [hidden] float tMaxX, tMaxY, tMinX, tMinY;
+  [hidden] float tX1, tY1, tX2, tY2;
+  [hidden] prop@ p1;
+  [hidden] prop@ p2;
+  scene@ g;
+  scripttrigger@ self;
+  
+  CloudTrigger() {
+    @g = get_scene();
+    position = speed = 0;
+    layer = sublayer = 15;
+    showLines = false;
+    X1 = Y1 = X2 = Y2 = 0;
+    scale = 1;
+    sendMessage = true;
+    name = "cloudTrigger";
+    start = 1;
+    propsDrawn = false;
+    add_broadcast_receiver('OnMyCustomEventNameAck', this, 'OnMyCustomEventNameAck');
+  }
+
+  void init(script@ s, scripttrigger@ self ) {
+    @this.self = @self;
+    name = "cloudTrigger" + self.as_entity().id();
+    Y1 = Y1Backup;
+    getMaxMinXY();
+    getScale();
+    scaleXY();
+    setRealXY();
+  }
+
+  void editor_draw(float sub_frame) {
+    if(showLines) {
+      //puts("X1 " + X1 + " Y1 " + Y1 + " X2 " + X2 + " Y2 " + Y2);
+      //puts("tMaxX " + tMaxX + " tMaxY " + tMaxY + " tMinX " + tMinX + " tMinY " + tMinY);
+      if(this.self.editor_selected()) {
+          g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, WHITE);
+          Y1Backup = Y1;
+          g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, GREEN);
+      } else {
+          g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, WHITE_TRANSPARENT);
+          Y1Backup = Y1;
+          g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, GREEN_TRANSPARENT);
+      }
+    }
+    if((@p1 == null || @p2 == null) && this.self.editor_selected()) {
+        puts("1");
+        g.remove_prop(@p1);
+        g.remove_prop(@p2);
+        @p1 = null;
+        @p2 = null;
+        drawProps();
+    } else if(!this.self.editor_selected()) {
+        puts("2");
+        g.remove_prop(@p1);
+        g.remove_prop(@p2);
+        @p1 = null;
+        @p2 = null;
+    } else {
+        puts("3");
+        g.remove_prop(@p1);
+        g.remove_prop(@p2);
+        @p1 = null;
+        @p2 = null;
+        drawProps();
+    } 
+  }
+  void drawProps() {
+    propsDrawn = true;
+    //WORKING HERE
+    @p1 = create_prop();
+    @p2 = create_prop();    
+    initProp(@p1, true);
+    initProp(@p2, false);
+
+    g.add_prop(@p1);
+    g.add_prop(@p2);
+  }
+  void editor_step() {
+    getMaxMinXY();
+    getScale();
+    scaleXY();
+  }
+
+
+  void initProp(prop@ pr, bool side) {
+        pr.layer(layer);
+        pr.sub_layer(sublayer);
+
+        pr.prop_set(set);
+        pr.prop_group(group);
+        pr.prop_index(index);
+        pr.palette(palette);
+
+        //TODO: implement scale
+        //pr.scale_x(sh.chosenCloud == 2 || sh.chosenCloud == 5 ? -1 : 1);
+
+        //TODO: implement rotation?
+
+        pr.x(side ? tX1 : tX2);   
+        pr.y(Y1);
+  }
+  void step() {
+    if(sendMessage) {
+      message@ msg = create_message();
+      msg.set_string('triggerID', name);
+      msg.set_string('triggerType', 'cloudMove');
+      msg.set_int('speed', speed);
+      msg.set_int('layer', layer);
+      msg.set_int('sublayer', sublayer);
+      msg.set_int('set', set);
+      msg.set_int('group', group);
+      msg.set_int('index', index);
+      msg.set_int('palette', palette);
+      msg.set_int('start', start);
+      msg.set_float('maxX', maxX);
+      msg.set_float('minX', minX);
+      msg.set_float('maxY', maxY);
+      msg.set_float('minY', minY);
+      msg.set_float('X1', tX1);
+      msg.set_float('X2', tX2);
+      msg.set_float('Y1', tY1);
+      msg.set_float('Y2', tY2);
+      msg.set_float('scale', scale);
+      broadcast_message('OnMyCustomEventName', msg);
+    }
+  }
+  
+  void setRealXY() {
+    maxX = tMaxX;
+    minX = tMinX;
+    minY = tMinY;
+    maxY = tMaxY;
+  }
+  
+  void getMaxMinXY() {
+    maxX = X1 > X2 ? X1 : X2;
+    minX = X1 > X2 ? X2 : X1;
+    maxY = Y1 > Y2 ? Y1 : Y2;
+    minY = Y1 > Y2 ? Y2 : Y1;
+  }
+  
+    //Update crap logic here, not scaling correctly
+  //18-i is scaled at (1-0.05*i) for 18-i >5
+  //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
+  void scaleXY() {
+    tMaxX = maxX / scale;
+    tMinX = minX / scale;
+    tMaxY = maxY / scale;
+    tMinY = minY / scale;
+
+    tX1 = X1 / scale;
+    tY1 = Y1 / scale;
+    tX2 = X2 / scale;
+    tY2 = Y2 / scale;
+
+    float diffX = (tMaxX - tMinX) - (maxX - minX);
+    float diffY = (tMaxY - tMinY) - (maxY - minY);
+    
+    tMaxX = maxX + (diffX / 2);
+    tMinX = minX - (diffX / 2);
+    tMaxY = maxY + (diffY / 2);
+    tMinY = minY - (diffY / 2);
+  }
+  
+  //Please do not look at this method
+  void getScale() {
+    if(layer >= 18) {
+      scale = 1;
+      //do nothing
+    } else if(layer > 5) {
+      switch(layer) {
+        case 17:
+          scale = (0.05 * (18-layer)) / .05;
+          break;
+        case 16:
+          scale = (0.05 * (18-layer)) / .1;
+          break;
+        case 15:
+          scale = (0.05 * (18-layer)) / .15;
+          break;
+        case 14:
+          scale = (0.05 * (18-layer)) / .2;
+          break;
+        case 13:
+          scale = (0.05 * (18-layer)) / .25;
+          break;
+        case 12:
+          scale = (0.05 * (18-layer)) / .3;
+          break;
+        case 11:
+          scale = (0.05 * (18-layer)) / .37;
+          break;
+        case 10:
+          scale = (0.05 * (18-layer)) / .445;
+          break;
+        case 9:
+          scale = (0.05 * (18-layer)) / .53;
+          break;
+        case 8:
+          scale = (0.05 * (18-layer)) / .625;
+          break;
+        case 7:
+          scale = (0.05 * (18-layer)) / .73;
+          break;
+        case 6:
+          scale = (0.05 * (18-layer)) / .86;
+          break;
+        default:
+          break;
+      }
+    } else if(layer >= 1) {
+      switch(layer) {
+        case 5:
+          scale = (0.05 * (18-layer)) / 2.6;
+          break;
+        case 4:
+          scale = (0.05 * (18-layer)) / 3.5;
+          break;
+        case 3:
+          scale = (0.05 * (18-layer)) / 5;
+          break;
+        case 2:
+          scale = (0.05 * (18-layer)) / 8;
+          break;
+        case 1:
+          scale = (0.05 * (18-layer)) / 17;
+          break;
+        default:
+          break;
+      }    
+    } else {
+      //Do nothing because layer 0 is dumb
+    }
+  }
+  
+  void OnMyCustomEventNameAck(string id, message@ msg) {
+    if (msg.get_int('ack') == 1) {
+      sendMessage = false;
+    } else if (msg.get_int('req') == 1){
+      sendMessage = true;
+    }
+    if(msg.get_int('lvlstart') == 1) {
+      //Level has started, remove any unneeded props used for editor
+      message@ msg2 = create_message();
+      msg2.set_int('triggerStarted', 1);
+      broadcast_message('OnMyCustomEventName', msg2);
+
+      g.remove_prop(@p1);
+      g.remove_prop(@p2);
+      @p1 = null;
+      @p2 = null;
+    }
+  }
+}
+
+class SpawnHelper {
+
+  [text]int speed, layer, sublayer, set, group, index, palette, direction, start;
+  [text]bool exists;
+  //[option,1:Cloud1,2:Cloud2,3:Cloud3,4:Cloud4,5:Cloud5,6:Cloud6]
+  [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2;
+  [text]float scale;
+  [text]string triggerID;
+  [hidden]array<prop@> props;
+  [hidden]array<int32> propids;
+  SpawnHelper() {
+    speed = 0;
+    layer = 10;
+    sublayer = 10;
+    exists = false;
+    maxX = 0;
+    minX = 0;
+    maxY = 0;
+    minY = 0;
+    start = 1;
+    set = 0;
+    group = 0;
+    index = 0;
+    palette = 0;
+    direction = 1; //TODO: allow opposite direction
+    X1 = 0;
+    Y1 = 0;
+    X2 = 0;
+    Y2 = 0;
+    scale = 0;
+  }
+
+  void setStart(int dir) {
+      direction = dir == 1 ? 1 : -1;
+  }
+}
