@@ -46,30 +46,26 @@ class script : callback_base {
       for(uint i = 0; i < sh.props.length(); i++) {
         prop @pr = sh.props[i];
         if(@pr == null) {
-          //puts("removed");
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
         } else if(sh.props[i].x() >= sh.maxX) {
-          sh.direction = -1;
-          pr.x(pr.x() + (sh.speed * sh.direction));
-          pr.y(propPath.getY(pr.x()));
-          //void draw_rectangle_world(uint layer, uint sub_layer, float x1, float y1,
-                                    //float x2, float y2, float rotation, uint colour);
-          //g.draw_rectangle_world(sh.layer, sh.sublayer, pr.x() - 5, pr.y() + 5, pr.x() + 5, pr.y() - 5, 0, WHITE);
-          //g.draw_line_world(sh.layer, 10, sh.X1, sh.Y1, sh.X2, sh.Y2, 5, 0x4AFFFFFF);
-          //puts("removed ids:" + sh.propids.length() + " props:" + sh.props.length());
+
+          if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
+            sh.direction = -1;
+            pr.x(pr.x() + (sh.speed * sh.direction));
+            pr.y(propPath.getY(pr.x()));
+            sh.numLaps--;
+          }
         } else if (sh.props[i].x() <= sh.minX) {
-          sh.direction = 1;
+            if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
+                sh.direction = 1;
+                pr.x(pr.x() + (sh.speed * sh.direction));
+                pr.y(propPath.getY(pr.x()));
+                sh.numLaps--;
+            }
+        } else { 
           pr.x(pr.x() + (sh.speed * sh.direction));
           pr.y(propPath.getY(pr.x()));
-         // g.draw_rectangle_world(sh.layer, sh.sublayer, pr.x() - 5, pr.y() + 5, pr.x() + 5, pr.y() - 5, 0, WHITE);
-         // g.draw_line_world(sh.layer, 10, sh.X1, sh.Y1, sh.X2, sh.Y2, 5, 0x4AFFFFFF);
-        }
-        else { 
-          pr.x(pr.x() + (sh.speed * sh.direction));
-          pr.y(propPath.getY(pr.x()));
-          //g.draw_rectangle_world(sh.layer, sh.sublayer, pr.x() - 5, pr.y() + 5, pr.x() + 5, pr.y() - 5, 0, WHITE);
-          //g.draw_line_world(sh.layer, 10, sh.X1, sh.Y1, sh.X2, sh.Y2, 5, 0x4AFFFFFF);
         }
       }
     } 
@@ -80,7 +76,6 @@ class script : callback_base {
   void checkpoint_load() {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
-      puts("load ids:" + sh.propids.length() + " props:" + sh.props.length());
       for(uint i = 0; i < sh.props.length(); i++) {
         if(@sh.props[i] != null) {
             @sh.props[i] = prop_by_id(sh.props[i].id());
@@ -104,22 +99,18 @@ class script : callback_base {
   prop@ makeProp(SpawnHelper@ sh) {
     prop@ pr = create_prop();
 
-    //puts("makingProp: "+sh.set+" group: "+sh.group+" index: "+sh.index+" palette: "+sh.palette);
     pr.layer(sh.layer);
     pr.sub_layer(sh.sublayer);
-
     pr.prop_set(sh.set);
     pr.prop_group(sh.group);
     pr.prop_index(sh.index);
     pr.palette(sh.palette);
-
-    //TODO: implement scale
-    //pr.scale_x(sh.chosenCloud == 2 || sh.chosenCloud == 5 ? -1 : 1);
-
-    //TODO: implement rotation?
-    
+    pr.scale_x(sh.scale);
+    pr.scale_y(sh.scale);
+    pr.rotation(sh.rotation);
     pr.x(sh.start == 1 ? sh.X1 : sh.X2);   
     pr.y(sh.Y1);
+
     return @pr;
   }
 
@@ -140,11 +131,13 @@ class script : callback_base {
       tmpSH.speed = msg.get_int('speed');
       tmpSH.layer = msg.get_int('layer');
       tmpSH.sublayer = msg.get_int('sublayer');
+      tmpSH.runNTimes = msg.get_int('runNTimes') == 1;
       tmpSH.set = msg.get_int('set');
       tmpSH.group = msg.get_int('group');
       tmpSH.index = msg.get_int('index');
       tmpSH.palette = msg.get_int('palette');
       tmpSH.start = msg.get_int('start');
+      tmpSH.numLaps = msg.get_int('numLaps');
       tmpSH.setStart(tmpSH.start);
       tmpSH.maxX = msg.get_float('maxX');
       tmpSH.minX = msg.get_float('minX');
@@ -155,6 +148,7 @@ class script : callback_base {
       tmpSH.Y1 = msg.get_float('Y1');
       tmpSH.Y2 = msg.get_float('Y2');
       tmpSH.scale = msg.get_float('scale');
+      tmpSH.rotation = msg.get_float('rotation');
       tmpSH.triggerID = msg.get_string('triggerID');
       //puts("ID: " + tmpSH.triggerID);
       spawnArr.insertLast(tmpSH);
@@ -166,25 +160,28 @@ class script : callback_base {
 
 class CloudTrigger : trigger_base, callback_base { 
   [hidden]string name;
-  [text]int speed;
+  [text]int prop_set;
+  [text]int prop_group;
+  [text]int prop_index;
+  [text]int prop_palette;
   [text]int layer;
   [text]int sublayer;
-  [text]bool showLines;
-
-  [text]int set;
-  [text]int group;
-  [text]int index;
-  [text]int palette;
-  [option,0:Right,1:Left] int start;
-  [hidden]int position;
-  [hidden] float Y1Backup;
+  [text]int speed;
   [hidden] float Y1, Y2;
-  [hidden] bool propsDrawn;
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
+  [text]bool showLines;
+
+
+  [text]bool runNTimes;
+  [text]int numLaps;
+  [option,0:Right,1:Left] int start;
+  [hidden] float Y1Backup;
   [hidden] bool sendMessage;
   [hidden] float maxX, minX, maxY, minY;
+  [slider,min:.01,max:20] float scaleProp;
   [hidden] float scale;
+  [angle] float rotation;
   //TODO: remove?
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
@@ -195,7 +192,7 @@ class CloudTrigger : trigger_base, callback_base {
 
   CloudTrigger() {
     @g = get_scene();
-    position = speed = 0;
+    speed = 5;
     layer = sublayer = 15;
     showLines = false;
     X1 = Y1 = X2 = Y2 = 0;
@@ -203,8 +200,9 @@ class CloudTrigger : trigger_base, callback_base {
     sendMessage = true;
     name = "cloudTrigger";
     start = 1;
-    propsDrawn = false;
     add_broadcast_receiver('OnMyCustomEventNameAck', this, 'OnMyCustomEventNameAck');
+    scaleProp = 1.0f;
+    numLaps = 0;
   }
 
   void init(script@ s, scripttrigger@ self ) {
@@ -231,13 +229,13 @@ class CloudTrigger : trigger_base, callback_base {
           g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, GREEN_TRANSPARENT);
       }
     }
-    if(this.self.editor_selected()) {
+    if(showLines) {
         drawProps();
     }
   }
   void drawProps() {
-    spr1.draw(layer, sublayer, 0, palette, tX1, tY1, 0, 1, 1, WHITE);
-    spr2.draw(layer, sublayer, 0, palette, tX2, tY2, 0, 1, 1, WHITE);
+    spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1, rotation, scaleProp, scaleProp, WHITE);
+    spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2, rotation, scaleProp, scaleProp, WHITE);
   }
 
   void editor_step() {
@@ -245,29 +243,11 @@ class CloudTrigger : trigger_base, callback_base {
     getScale();
     scaleXY();
     //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
-    sprite_from_prop(set, group, index, sprSet, sprName);
+    sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
 	spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
   }
 
-
-  void initProp(prop@ pr, bool side) {
-        pr.layer(layer);
-        pr.sub_layer(sublayer);
-
-        pr.prop_set(set);
-        pr.prop_group(group);
-        pr.prop_index(index);
-        pr.palette(palette);
-
-        //TODO: implement scale
-        //pr.scale_x(sh.chosenCloud == 2 || sh.chosenCloud == 5 ? -1 : 1);
-
-        //TODO: implement rotation?
-
-        pr.x(side ? tX1 : tX2);   
-        pr.y(side ? tY1 : tY2);
-  }
   void step() {
     if(sendMessage) {
       message@ msg = create_message();
@@ -276,11 +256,13 @@ class CloudTrigger : trigger_base, callback_base {
       msg.set_int('speed', speed);
       msg.set_int('layer', layer);
       msg.set_int('sublayer', sublayer);
-      msg.set_int('set', set);
-      msg.set_int('group', group);
-      msg.set_int('index', index);
-      msg.set_int('palette', palette);
+      msg.set_int('set', prop_set);
+      msg.set_int('group', prop_group);
+      msg.set_int('index', prop_index);
+      msg.set_int('palette', prop_palette);
       msg.set_int('start', start);
+      msg.set_int('runNTimes', runNTimes ? 1:0);
+      msg.set_int('numLaps', numLaps);
       msg.set_float('maxX', maxX);
       msg.set_float('minX', minX);
       msg.set_float('maxY', maxY);
@@ -289,7 +271,8 @@ class CloudTrigger : trigger_base, callback_base {
       msg.set_float('X2', tX2);
       msg.set_float('Y1', tY1);
       msg.set_float('Y2', tY2);
-      msg.set_float('scale', scale);
+      msg.set_float('scale', scaleProp);
+      msg.set_float('rotation', rotation);
       broadcast_message('OnMyCustomEventName', msg);
     }
   }
@@ -421,11 +404,16 @@ class SpawnHelper {
   [text]string triggerID;
   [hidden]array<prop@> props;
   [hidden]array<int32> propids;
+  [hidden]float rotation;
+  [hidden]bool runNTimes;
+  [hidden]int numLaps;
   SpawnHelper() {
+    numLaps = 0;
     speed = 0;
     layer = 10;
     sublayer = 10;
     exists = false;
+    runNTimes = false;
     maxX = 0;
     minX = 0;
     maxY = 0;
@@ -441,6 +429,7 @@ class SpawnHelper {
     X2 = 0;
     Y2 = 0;
     scale = 0;
+    rotation = 0;
   }
 
   void setStart(int dir) {
