@@ -49,15 +49,20 @@ class script : callback_base {
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
         } else if(sh.props[i].x() >= sh.maxX) {
-
-          if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
-            sh.direction = -1;
-            pr.x(pr.x() + (sh.speed * sh.direction));
-            pr.y(propPath.getY(pr.x()));
-            sh.numLaps--;
-          }
+            if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
+              sh.direction = -1;
+              //If prop is supposed to flip when hitting the end, negate the scale
+              pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
+              pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
+              pr.x(pr.x() + (sh.speed * sh.direction));
+              pr.y(propPath.getY(pr.x()));
+              sh.numLaps--;
+            }
         } else if (sh.props[i].x() <= sh.minX) {
             if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
+                //If prop is supposed to flip when hitting the end, negate the scale
+                pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
+                pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
                 sh.direction = 1;
                 pr.x(pr.x() + (sh.speed * sh.direction));
                 pr.y(propPath.getY(pr.x()));
@@ -105,8 +110,9 @@ class script : callback_base {
     pr.prop_group(sh.group);
     pr.prop_index(sh.index);
     pr.palette(sh.palette);
-    pr.scale_x(sh.scale);
-    pr.scale_y(sh.scale);
+    puts("x "+sh.scaleX);
+    pr.scale_x(sh.scaleX);
+    pr.scale_y(sh.scaleY);
     pr.rotation(sh.rotation);
     pr.x(sh.start == 1 ? sh.X1 : sh.X2);   
     pr.y(sh.Y1);
@@ -132,6 +138,8 @@ class script : callback_base {
       tmpSH.layer = msg.get_int('layer');
       tmpSH.sublayer = msg.get_int('sublayer');
       tmpSH.runNTimes = msg.get_int('runNTimes') == 1;
+      tmpSH.flipx = msg.get_int('flipx') == 1;
+      tmpSH.flipy = msg.get_int('flipy') == 1;
       tmpSH.set = msg.get_int('set');
       tmpSH.group = msg.get_int('group');
       tmpSH.index = msg.get_int('index');
@@ -147,7 +155,8 @@ class script : callback_base {
       tmpSH.X2 = msg.get_float('X2');
       tmpSH.Y1 = msg.get_float('Y1');
       tmpSH.Y2 = msg.get_float('Y2');
-      tmpSH.scale = msg.get_float('scale');
+      tmpSH.scaleX = msg.get_float('scaleX');
+      tmpSH.scaleY = msg.get_float('scaleY');
       tmpSH.rotation = msg.get_float('rotation');
       tmpSH.triggerID = msg.get_string('triggerID');
       //puts("ID: " + tmpSH.triggerID);
@@ -158,7 +167,7 @@ class script : callback_base {
 
 
 
-class CloudTrigger : trigger_base, callback_base { 
+class RailTrigger : trigger_base, callback_base { 
   [hidden]string name;
   [text]int prop_set;
   [text]int prop_group;
@@ -172,14 +181,16 @@ class CloudTrigger : trigger_base, callback_base {
   [position,mode:world,layer:18,y:Y2] float X2;
   [text]bool showLines;
 
-
+  [text]bool flipx;
+  [text]bool flipy;
   [text]bool runNTimes;
   [text]int numLaps;
   [option,0:Right,1:Left] int start;
   [hidden] float Y1Backup;
   [hidden] bool sendMessage;
   [hidden] float maxX, minX, maxY, minY;
-  [slider,min:.01,max:20] float scaleProp;
+  [text] float scalePropX;
+  [text] float scalePropY;
   [hidden] float scale;
   [angle] float rotation;
   //TODO: remove?
@@ -190,24 +201,25 @@ class CloudTrigger : trigger_base, callback_base {
   scripttrigger@ self;
   Sprite spr1, spr2;
 
-  CloudTrigger() {
+  RailTrigger() {
     @g = get_scene();
     speed = 5;
     layer = sublayer = 15;
-    showLines = false;
+    showLines = true;
     X1 = Y1 = X2 = Y2 = 0;
     scale = 1;
     sendMessage = true;
-    name = "cloudTrigger";
+    name = "railTrigger";
     start = 1;
     add_broadcast_receiver('OnMyCustomEventNameAck', this, 'OnMyCustomEventNameAck');
-    scaleProp = 1.0f;
+    scalePropX = 1.0f;
+    scalePropY = 1.0f;
     numLaps = 0;
   }
 
   void init(script@ s, scripttrigger@ self ) {
     @this.self = @self;
-    name = "cloudTrigger" + self.as_entity().id();
+    name = "railTrigger" + self.as_entity().id();
     Y1 = Y1Backup;
     getMaxMinXY();
     getScale();
@@ -234,8 +246,8 @@ class CloudTrigger : trigger_base, callback_base {
     }
   }
   void drawProps() {
-    spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1, rotation, scaleProp, scaleProp, WHITE);
-    spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2, rotation, scaleProp, scaleProp, WHITE);
+    spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1, rotation, scalePropX, scalePropY, WHITE);
+    spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2, rotation, scalePropX, scalePropY, WHITE);
   }
 
   void editor_step() {
@@ -244,7 +256,7 @@ class CloudTrigger : trigger_base, callback_base {
     scaleXY();
     //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
     sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
-	spr1.set(sprSet, sprName);
+	  spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
   }
 
@@ -263,6 +275,8 @@ class CloudTrigger : trigger_base, callback_base {
       msg.set_int('start', start);
       msg.set_int('runNTimes', runNTimes ? 1:0);
       msg.set_int('numLaps', numLaps);
+      msg.set_int('flipx', flipx ? 1:0);
+      msg.set_int('flipy', flipy ? 1:0);
       msg.set_float('maxX', maxX);
       msg.set_float('minX', minX);
       msg.set_float('maxY', maxY);
@@ -271,7 +285,8 @@ class CloudTrigger : trigger_base, callback_base {
       msg.set_float('X2', tX2);
       msg.set_float('Y1', tY1);
       msg.set_float('Y2', tY2);
-      msg.set_float('scale', scaleProp);
+      msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
+      msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
       msg.set_float('rotation', rotation);
       broadcast_message('OnMyCustomEventName', msg);
     }
@@ -400,12 +415,14 @@ class SpawnHelper {
   [text]bool exists;
   //[option,1:Cloud1,2:Cloud2,3:Cloud3,4:Cloud4,5:Cloud5,6:Cloud6]
   [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2;
-  [text]float scale;
+  [text]float scaleX, scaleY;
   [text]string triggerID;
   [hidden]array<prop@> props;
   [hidden]array<int32> propids;
   [hidden]float rotation;
   [hidden]bool runNTimes;
+  [hidden]bool flipx;
+  [hidden]bool flipy;
   [hidden]int numLaps;
   SpawnHelper() {
     numLaps = 0;
@@ -414,6 +431,8 @@ class SpawnHelper {
     sublayer = 10;
     exists = false;
     runNTimes = false;
+    flipx = false;
+    flipy = false;
     maxX = 0;
     minX = 0;
     maxY = 0;
@@ -428,7 +447,8 @@ class SpawnHelper {
     Y1 = 0;
     X2 = 0;
     Y2 = 0;
-    scale = 0;
+    scaleX = 0;
+    scaleY = 0;
     rotation = 0;
   }
 
