@@ -15,10 +15,12 @@ class script : callback_base {
   [text]array<SpawnHelper@> spawnArr;
   scene@ g;
   int frame_cp;
+  int frameCount;
   [hidden]array<SpawnHelper@> savedClouds;
   bool exists = false;
   array<int> triggerIDs;
   script() {
+    frameCount = 0;
     @g = get_scene();
     srand(timestamp_now());
     add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
@@ -74,6 +76,8 @@ class script : callback_base {
         }
       }
     } 
+
+    frameCount++;
   }
   
   void checkpoint_save() { }
@@ -110,7 +114,6 @@ class script : callback_base {
     pr.prop_group(sh.group);
     pr.prop_index(sh.index);
     pr.palette(sh.palette);
-    puts("x "+sh.scaleX);
     pr.scale_x(sh.scaleX);
     pr.scale_y(sh.scaleY);
     pr.rotation(sh.rotation);
@@ -159,7 +162,6 @@ class script : callback_base {
       tmpSH.scaleY = msg.get_float('scaleY');
       tmpSH.rotation = msg.get_float('rotation');
       tmpSH.triggerID = msg.get_string('triggerID');
-      //puts("ID: " + tmpSH.triggerID);
       spawnArr.insertLast(tmpSH);
     }
   }
@@ -229,8 +231,6 @@ class RailTrigger : trigger_base, callback_base {
 
   void editor_draw(float sub_frame) {
     if(showLines) {
-      //puts("X1 " + X1 + " Y1 " + Y1 + " X2 " + X2 + " Y2 " + Y2);
-      //puts("tMaxX " + tMaxX + " tMaxY " + tMaxY + " tMinX " + tMinX + " tMinY " + tMinY);
       if(this.self.editor_selected()) {
           g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, WHITE);
           Y1Backup = Y1;
