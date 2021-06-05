@@ -1,18 +1,13 @@
 const string EMBED_sound1 = "amb1.ogg"; 
-const string EMBED_sound2 = "amb1.ogg";
-const string EMBED_sound3 = "amb1.ogg";
-const string EMBED_sound4 = "amb1.ogg";
-const string EMBED_sound5 = "amb1.ogg";
-const string EMBED_sound6 = "amb1.ogg";
-const string EMBED_sound7 = "amb1.ogg";
-const string EMBED_sound8 = "amb1.ogg";
-const string EMBED_sound9 = "amb1.ogg"; 
-const string EMBED_sound10 = "music.ogg";// this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
+const string EMBED_sound2 = "amb2.ogg";
+const string EMBED_sound3 = "amb3ice.ogg";
+const string EMBED_sound4 = "amb3ice.ogg";
+const string EMBED_sound5 = "music.ogg";// this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
                                          // @musicHandle = g.play_script_stream(EMBED_sound10.split(".")[0], 2, 0, 0, true, musicVolume/100);
                                          // Or just set the volume to 0 in the script in the script editor UI
 const uint WHITE = 4294967295;
 
-const int NUM_SOUNDS = 10; // Update this to be the number of EMBED sounds
+const int NUM_SOUNDS = 5; // Update this to be the number of EMBED sounds
 const int MAX_PLAYERS = 4;
 // Put audio files in ...\common\Dustforce\user\embed_src
   
@@ -35,22 +30,16 @@ class script : callback_base {
     volumeChanged = false; 
     @musicHandle = null;
 
-    array<int> fadeTime = {0,0,0,0,0,0,0,0,0,0};
-    array<float> volume = {0,0,0,0,0,0,0,0,0,0};
+    array<int> fadeTime = {0,0,0,0,0};
+    array<float> volume = {0,0,0,0,0};
 
-    array<audio@> audioHandles = {null, null, null, null, null,
-                                  null, null, null, null, null};
+    array<audio@> audioHandles = {null, null, null, null, null};
 
     sounds[0] = EMBED_sound1.split(".")[0];
     sounds[1] = EMBED_sound2.split(".")[0];
     sounds[2] = EMBED_sound3.split(".")[0];
     sounds[3] = EMBED_sound4.split(".")[0];
     sounds[4] = EMBED_sound5.split(".")[0];
-    sounds[5] = EMBED_sound6.split(".")[0];
-    sounds[6] = EMBED_sound7.split(".")[0];
-    sounds[7] = EMBED_sound8.split(".")[0];
-    sounds[8] = EMBED_sound9.split(".")[0];
-    sounds[9] = EMBED_sound10.split(".")[0];
   }
   
   void OnMyCustomEventName(string id, message@ msg) {
@@ -77,7 +66,7 @@ class script : callback_base {
   }
  
   void on_level_start() {
-     @audioHandles[NUM_SOUNDS-1] = g.play_script_stream(EMBED_sound10.split(".")[0], 2, 0, 0, true, musicVolume/100);
+     @audioHandles[NUM_SOUNDS-1] = g.play_persistent_stream(EMBED_sound5.split(".")[0], 1, 1, musicVolume/100, true);
      volume[NUM_SOUNDS - 1] = musicVolume/100;
      fadeTime[NUM_SOUNDS - 1] = 0;
   }
@@ -87,12 +76,8 @@ class script : callback_base {
     msg.set_string(EMBED_sound2.split(".")[0], "sound2");
     msg.set_string(EMBED_sound3.split(".")[0], "sound3");
     msg.set_string(EMBED_sound4.split(".")[0], "sound4");
-    msg.set_string(EMBED_sound5.split(".")[0], "sound5");
-    msg.set_string(EMBED_sound6.split(".")[0], "sound6");
-    msg.set_string(EMBED_sound7.split(".")[0], "sound7");
-    msg.set_string(EMBED_sound8.split(".")[0], "sound8");
-    msg.set_string(EMBED_sound9.split(".")[0], "sound9");
-    msg.set_string(EMBED_sound10.split(".")[0], "sound10"); //music
+    msg.set_string(EMBED_sound5.split(".")[0], "sound5"); //music
+    //msg.set_int("sound5|loop", 211005); //SET SAMPLES HERE
   }
    
   void step(int entities) {
@@ -146,7 +131,7 @@ class soundEffect: trigger_base, callback_base {
   [text]bool playOncePerActivation;
   [text]bool showRadius;
   
-  [option,1:sound1,2:sound2,3:sound3,4:sound4,5:sound5,6:sound6,7:sound7,8:sound8,9:sound9,10:music]int sfx;
+  [option,1:sound1,2:sound2,3:sound3,4:sound4,5:music]int sfx;
   [option,1:music,2:ambience,3:sfx] uint soundGroup;
     
   soundEffect() {
