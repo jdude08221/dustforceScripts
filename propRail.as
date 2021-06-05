@@ -119,11 +119,11 @@ class script : callback_base {
     pr.rotation(sh.rotation);
     pr.x(sh.start == 1 ? sh.X1 : sh.X2);   
     pr.y(sh.Y1);
-
     return @pr;
   }
 
   void OnMyCustomEventName(string id, message@ msg) {
+
     if(msg.get_string('triggerType') == 'cloudMove') {
       SpawnHelper@ tmpSH = SpawnHelper();
       if(@tmpSH == null) {
@@ -136,7 +136,6 @@ class script : callback_base {
           return;
         }
       }  
-      
       tmpSH.speed = msg.get_int('speed');
       tmpSH.layer = msg.get_int('layer');
       tmpSH.sublayer = msg.get_int('sublayer');
@@ -198,6 +197,7 @@ class RailTrigger : trigger_base, callback_base {
   //TODO: remove?
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
+  [hidden] float realX1, realY1, realX2, realY2;
   [hidden] string sprSet, sprName;
   scene@ g;
   scripttrigger@ self;
@@ -209,6 +209,7 @@ class RailTrigger : trigger_base, callback_base {
     layer = sublayer = 15;
     showLines = true;
     X1 = Y1 = X2 = Y2 = 0;
+    realX1 = realY1 = realX2 = realY2 = 0;
     scale = 1;
     sendMessage = true;
     name = "railTrigger";
@@ -226,7 +227,12 @@ class RailTrigger : trigger_base, callback_base {
     getMaxMinXY();
     getScale();
     scaleXY();
-    setRealXY();
+    //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
+    sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
+	  spr1.set(sprSet, sprName);
+    spr2.set(sprSet, sprName);
+    spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
+    spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);      
   }
 
   void editor_draw(float sub_frame) {
@@ -258,6 +264,8 @@ class RailTrigger : trigger_base, callback_base {
     sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
 	  spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
+    spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
+    spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
   }
 
   void step() {
@@ -277,14 +285,14 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('numLaps', numLaps);
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
-      msg.set_float('maxX', maxX);
-      msg.set_float('minX', minX);
-      msg.set_float('maxY', maxY);
-      msg.set_float('minY', minY);
-      msg.set_float('X1', tX1);
-      msg.set_float('X2', tX2);
-      msg.set_float('Y1', tY1);
-      msg.set_float('Y2', tY2);
+      msg.set_float('maxX', realX1 > realX2? realX1:realX2);
+      msg.set_float('minX', realX1 > realX2? realX2:realX1);
+      msg.set_float('maxY', realY1 > realY2? realY1:realY2);
+      msg.set_float('minY', realY1 > realY2? realY2:realY1);
+      msg.set_float('X1', realX1);
+      msg.set_float('X2', realX2);
+      msg.set_float('Y1', realY1);
+      msg.set_float('Y2', realY2);
       msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
       msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
       msg.set_float('rotation', rotation);
@@ -310,6 +318,9 @@ class RailTrigger : trigger_base, callback_base {
   //18-i is scaled at (1-0.05*i) for 18-i >5
   //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
   void scaleXY() {
+    
+
+    //working here
     tMaxX = maxX / scale;
     tMinX = minX / scale;
     tMaxY = maxY / scale;
@@ -327,6 +338,10 @@ class RailTrigger : trigger_base, callback_base {
     tMinX = minX - (diffX / 2);
     tMaxY = maxY + (diffY / 2);
     tMinY = minY - (diffY / 2);
+
+    
+
+
   }
   
   //Please do not look at this method
