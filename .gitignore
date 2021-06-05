@@ -190,3 +190,11 @@ layer_controller.cpp
 cloneable_trigger_base.cpp
 sublayers.txt
 copy.as
+main.as
+test_collision.as
+prop_group.as
+wiggle.as
+prop-path.as
+prism_replace.cpp
+music_replace.as
+apple_replace.cpp
