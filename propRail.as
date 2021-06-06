@@ -322,9 +322,6 @@ class RailTrigger : trigger_base, callback_base {
   //18-i is scaled at (1-0.05*i) for 18-i >5
   //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
   void scaleXY() {
-    
-
-    //working here
     tMaxX = maxX / scale;
     tMinX = minX / scale;
     tMaxY = maxY / scale;
