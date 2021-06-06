@@ -7,6 +7,7 @@ const uint WHITE = 0xFFFFFFFF;
 const uint GREEN = 0xFF00FF00; 
 const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
 const uint GREEN_TRANSPARENT = 0x4A00FF00; 
+const uint FRAME_SKIP = 4;
 
 //18-i is scaled at (1-0.05*i) for 18-i >5
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
@@ -47,30 +48,39 @@ class script : callback_base {
    
       for(uint i = 0; i < sh.props.length(); i++) {
         prop @pr = sh.props[i];
-        if(@pr == null) {
+        
+        if(@pr == null) { //If somehow we lost the handle, remove the prop from our array
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
-        } else if(sh.props[i].x() >= sh.maxX) {
+        } else if(sh.props[i].x() >= sh.maxX && frameCount % FRAME_SKIP == 0) { // Prop has reached the right end of the rail
             if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
+              // Change direction of movement and start moving other way
               sh.direction = -1;
-              //If prop is supposed to flip when hitting the end, negate the scale
+
+              // Flip the prop if needed for X/Y
               pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
               pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
               pr.x(pr.x() + (sh.speed * sh.direction));
               pr.y(propPath.getY(pr.x()));
+
+              // Decrement lap count
               sh.numLaps--;
             }
-        } else if (sh.props[i].x() <= sh.minX) {
+        } else if (sh.props[i].x() <= sh.minX && frameCount % FRAME_SKIP == 0) { // Prop has reached left end of the rail
             if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
-                //If prop is supposed to flip when hitting the end, negate the scale
+                // Change direction of movement and start moving other way
+                sh.direction = 1;
+
+                // Flip the prop if needed for X/Y
                 pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
                 pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
-                sh.direction = 1;
                 pr.x(pr.x() + (sh.speed * sh.direction));
                 pr.y(propPath.getY(pr.x()));
+
+                // Decrement lap count
                 sh.numLaps--;
             }
-        } else { 
+        } else if(frameCount % FRAME_SKIP == 0) { 
           pr.x(pr.x() + (sh.speed * sh.direction));
           pr.y(propPath.getY(pr.x()));
         }
@@ -107,7 +117,6 @@ class script : callback_base {
  
   prop@ makeProp(SpawnHelper@ sh) {
     prop@ pr = create_prop();
-
     pr.layer(sh.layer);
     pr.sub_layer(sh.sublayer);
     pr.prop_set(sh.set);
