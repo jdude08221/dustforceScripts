@@ -1,12 +1,13 @@
 #include "../lib/math/Line.cpp";
 #include "../lib/props/common.cpp"
 #include "../lib/drawing/Sprite.cpp"
+#include "../lib/drawing/common.cpp"
+#include '../lib/ui/prop-selector/PropSelector.cpp';
 const int BASE_SPAWN_RATE = 8000;
 const uint WHITE = 0xFFFFFFFF; 
 const uint GREEN = 0xFF00FF00; 
 const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
 const uint GREEN_TRANSPARENT = 0x4A00FF00; 
-const uint FRAME_SKIP = 2;
 //18-i is scaled at (1-0.05*i) for 18-i >5
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
 
@@ -18,6 +19,7 @@ class script : callback_base {
   [hidden]array<SpawnHelper@> savedClouds;
   bool exists = false;
   array<int> triggerIDs;
+
   script() {
     frameCount = 0;
     @g = get_scene();
@@ -47,7 +49,7 @@ class script : callback_base {
         if(@pr == null) { //If somehow we lost the handle, remove the prop from our array
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
-        } else if(frameCount % FRAME_SKIP == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
+        } else if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
             if(sh.props[i].x() >= sh.maxX || sh.props[i].x() <= sh.minX) {
               flipDirection(sh, pr, sh.props[i].x() >= sh.maxX ? -1 : 1);
             } else {
@@ -148,6 +150,7 @@ class script : callback_base {
       tmpSH.palette = msg.get_int('palette');
       tmpSH.start = msg.get_int('start');
       tmpSH.numLaps = msg.get_int('numLaps');
+      tmpSH.frameSkip = msg.get_int('frameSkip');
       tmpSH.setStart(tmpSH.start);
       tmpSH.maxX = msg.get_float('maxX');
       tmpSH.minX = msg.get_float('minX');
@@ -168,15 +171,17 @@ class script : callback_base {
 
 
 
-class RailTrigger : trigger_base, callback_base { 
+class RailTrigger : trigger_base, callback_base {
   [hidden]string name;
-  [text]int prop_set;
-  [text]int prop_group;
-  [text]int prop_index;
-  [text]int prop_palette;
+  [hidden]int prop_set;
+  [hidden]int prop_group;
+  [hidden]int prop_index;
+  [hidden]int prop_palette;
+  [text] bool selectProp;
   [text]int layer;
   [text]int sublayer;
   [text]int speed;
+  [text]int frameSkip;
   [hidden] float Y1, Y2;
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
@@ -198,10 +203,16 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] float realX1, realY1, realX2, realY2;
   [hidden] string sprSet, sprName;
   scene@ g;
+
+  private UI@ ui = UI();
+  private Mouse@ mouse = ui.mouse;
+  private PropSelector prop_selector(ui);
+
   scripttrigger@ self;
   Sprite spr1, spr2;
 
   RailTrigger() {
+    selectProp = false;
     @g = get_scene();
     speed = 5;
     layer = sublayer = 15;
@@ -227,7 +238,7 @@ class RailTrigger : trigger_base, callback_base {
     scaleXY();
     //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
     sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
-	  spr1.set(sprSet, sprName);
+    spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
     spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
     spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
@@ -235,10 +246,59 @@ class RailTrigger : trigger_base, callback_base {
   }
 
   void editor_draw(float sub_frame) {
+    if(prop_selector.visible)
+    {
+      //if(selected_brush_def_index >= 0 && selected_brush_def_index < int(brushes.size()))
+      //{
+        prop_selector.draw();
+        
+        if(prop_selector.result == Selected)
+        {
+          puts("selected");
+          if(prop_selector.result_prop is null) {
+            prop_set = 0;
+            prop_index = 0;
+            prop_group = 0;
+            prop_palette = 0;
+          } else {
+            prop_set = prop_selector.result_prop.set;
+            prop_index = prop_selector.result_prop.index;
+            prop_group = prop_selector.result_prop.group;
+            prop_palette = prop_selector.result_palette;
+          }
+          
+          prop_selector.hide();
+        }
+        else if(prop_selector.result == None)
+        {
+          prop_set = 0;
+          prop_index = 0;
+          prop_group = 0;
+          prop_palette = 0;
+          prop_selector.hide();
+        }
+      //}
+      //else
+      //{
+        //selected_brush_def_index = -1;
+        //prop_selector.hide();
+      //}
+    }
+
     if(showLines) {
+        if(start == 1) {
+          draw_arrow(g, 21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          g.draw_line_world(21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+
+        } else{
+          draw_arrow(g, 21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          g.draw_line_world(18, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+        }
+
         g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, this.self.editor_selected() ? WHITE : WHITE_TRANSPARENT);
+        
         Y1Backup = Y1;
-        g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+        
         drawProps();
     }
   }
@@ -248,15 +308,35 @@ class RailTrigger : trigger_base, callback_base {
   }
 
   void editor_step() {
+    ui.step();
     getMaxMinXY();
     getScale();
     scaleXY();
     //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
     sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
-	  spr1.set(sprSet, sprName);
+    spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
     spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
     spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
+    self.set_xy((tX1 + tX2)/2, (tY1 + tY2)/2);
+
+    if(!prop_selector.visible && selectProp)
+    {
+      prop_selector.select_group(null);
+      prop_selector.select_prop(null);
+      
+      if(/*@brush_def.selected_prop != null*/true)
+      {
+        prop_selector.select_prop(prop_set, prop_group, prop_index, prop_palette);
+      }
+      else
+      {
+        prop_selector.select_prop(null);
+      }
+      prop_selector.show();
+      selectProp = false;
+      self.editor_sync_vars_menu();
+    }
     //puts('realX1: '+realX1+"realY1: "+realY1);
   }
 
@@ -277,6 +357,7 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('numLaps', numLaps);
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
+      msg.set_int('frameSkip', frameSkip == 0 ? 1 : frameSkip);
       if(layer > 5 ) {
         msg.set_float('maxX', realX1 > realX2? realX1:realX2);
         msg.set_float('minX', realX1 > realX2? realX2:realX1);
@@ -428,6 +509,7 @@ class SpawnHelper {
   [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2;
   [text]float scaleX, scaleY;
   [text]string triggerID;
+  [text]int frameSkip;
   [hidden]array<prop@> props;
   [hidden]array<int32> propids;
   [hidden]float rotation;
@@ -461,6 +543,7 @@ class SpawnHelper {
     scaleX = 0;
     scaleY = 0;
     rotation = 0;
+    frameSkip = 1;
   }
 
   void setStart(int dir) {
