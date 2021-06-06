@@ -7,7 +7,7 @@ const uint WHITE = 0xFFFFFFFF;
 const uint GREEN = 0xFF00FF00; 
 const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
 const uint GREEN_TRANSPARENT = 0x4A00FF00; 
-const uint FRAME_SKIP = 4;
+const uint FRAME_SKIP = 2;
 
 //18-i is scaled at (1-0.05*i) for 18-i >5
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
@@ -28,9 +28,7 @@ class script : callback_base {
     //override_stream_sizes(100, 8);
   }
 
-  void on_level_start() {
-      
-  }
+  void on_level_start() {}
 
   void step(int entities) {  
     for(uint j = 0; j < spawnArr.length(); j++) {
@@ -48,48 +46,42 @@ class script : callback_base {
    
       for(uint i = 0; i < sh.props.length(); i++) {
         prop @pr = sh.props[i];
-        
         if(@pr == null) { //If somehow we lost the handle, remove the prop from our array
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
-        } else if(sh.props[i].x() >= sh.maxX && frameCount % FRAME_SKIP == 0) { // Prop has reached the right end of the rail
-            if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
-              // Change direction of movement and start moving other way
-              sh.direction = -1;
-
-              // Flip the prop if needed for X/Y
-              pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
-              pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
-              pr.x(pr.x() + (sh.speed * sh.direction));
-              pr.y(propPath.getY(pr.x()));
-
-              // Decrement lap count
-              sh.numLaps--;
-            }
-        } else if (sh.props[i].x() <= sh.minX && frameCount % FRAME_SKIP == 0) { // Prop has reached left end of the rail
-            if(!sh.runNTimes || (sh.runNTimes && sh.numLaps > 0)) {
-                // Change direction of movement and start moving other way
-                sh.direction = 1;
-
-                // Flip the prop if needed for X/Y
-                pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
-                pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
+        } else if(frameCount % FRAME_SKIP == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
+            if(sh.props[i].x() >= sh.maxX || sh.props[i].x() <= sh.minX) {
+              flipDirection(sh, pr, sh.props[i].x() >= sh.maxX ? -1 : 1);
+            } else {
                 pr.x(pr.x() + (sh.speed * sh.direction));
                 pr.y(propPath.getY(pr.x()));
-
-                // Decrement lap count
-                sh.numLaps--;
             }
-        } else if(frameCount % FRAME_SKIP == 0) { 
-          pr.x(pr.x() + (sh.speed * sh.direction));
-          pr.y(propPath.getY(pr.x()));
         }
       }
-    } 
-
+    }
     frameCount++;
   }
   
+  bool continueLaps(SpawnHelper@ sh) {
+    return !sh.runNTimes || (sh.runNTimes && sh.numLaps >= 0);
+  }
+
+  void flipDirection(SpawnHelper@ sh, prop@ pr, int dir) {
+    Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
+
+    // Change direction of movement and start moving other way
+    sh.direction = dir;
+
+    // Flip the prop if needed for X/Y
+    pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
+    pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
+    pr.x(pr.x() + (sh.speed * sh.direction));
+    pr.y(propPath.getY(pr.x()));
+
+    // Decrement lap count
+    sh.numLaps--;
+  }
+
   void checkpoint_save() { }
 
   void checkpoint_load() {
@@ -126,7 +118,8 @@ class script : callback_base {
     pr.scale_x(sh.scaleX);
     pr.scale_y(sh.scaleY);
     pr.rotation(sh.rotation);
-    pr.x(sh.start == 1 ? sh.X1 : sh.X2);   
+    //puts('X1: '+sh.X1+"Y11: "+sh.Y1);
+    pr.x(sh.start == 1 ? sh.X1 : sh.X2);
     pr.y(sh.Y1);
     return @pr;
   }
@@ -241,22 +234,15 @@ class RailTrigger : trigger_base, callback_base {
 	  spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
     spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
-    spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);      
+    spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
+    //puts('realX1: '+realX1+"realY1: "+realY1);
   }
 
   void editor_draw(float sub_frame) {
     if(showLines) {
-      if(this.self.editor_selected()) {
-          g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, WHITE);
-          Y1Backup = Y1;
-          g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, GREEN);
-      } else {
-          g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, WHITE_TRANSPARENT);
-          Y1Backup = Y1;
-          g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, GREEN_TRANSPARENT);
-      }
-    }
-    if(showLines) {
+        g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, this.self.editor_selected() ? WHITE : WHITE_TRANSPARENT);
+        Y1Backup = Y1;
+        g.draw_line_world(18, 10, X1, Y1, X2, Y2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
         drawProps();
     }
   }
@@ -275,6 +261,7 @@ class RailTrigger : trigger_base, callback_base {
     spr2.set(sprSet, sprName);
     spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
     spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
+    //puts('realX1: '+realX1+"realY1: "+realY1);
   }
 
   void step() {
@@ -294,14 +281,26 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('numLaps', numLaps);
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
-      msg.set_float('maxX', realX1 > realX2? realX1:realX2);
-      msg.set_float('minX', realX1 > realX2? realX2:realX1);
-      msg.set_float('maxY', realY1 > realY2? realY1:realY2);
-      msg.set_float('minY', realY1 > realY2? realY2:realY1);
-      msg.set_float('X1', realX1);
-      msg.set_float('X2', realX2);
-      msg.set_float('Y1', realY1);
-      msg.set_float('Y2', realY2);
+      if(layer > 5 ) {
+        msg.set_float('maxX', realX1 > realX2? realX1:realX2);
+        msg.set_float('minX', realX1 > realX2? realX2:realX1);
+        msg.set_float('maxY', realY1 > realY2? realY1:realY2);
+        msg.set_float('minY', realY1 > realY2? realY2:realY1);
+        msg.set_float('X1', realX1);
+        msg.set_float('X2', realX2);
+        msg.set_float('Y1', realY1);
+        msg.set_float('Y2', realY2);
+      } else {
+        msg.set_float('maxX', tX1 > tX2? tX1:tX2);
+        msg.set_float('minX', tX1 > tX2? tX2:tX1);
+        msg.set_float('maxY', tY1 > tY2? tY1:tY2);
+        msg.set_float('minY', tY1 > tY2? tY2:tY1);
+        msg.set_float('X1', tX1);
+        msg.set_float('X2', tX2);
+        msg.set_float('Y1', tY1);
+        msg.set_float('Y2', tY2);
+      }
+      
       msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
       msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
       msg.set_float('rotation', rotation);
@@ -466,7 +465,7 @@ class SpawnHelper {
     group = 0;
     index = 0;
     palette = 0;
-    direction = 1; //TODO: allow opposite direction
+    direction = 1;
     X1 = 0;
     Y1 = 0;
     X2 = 0;
