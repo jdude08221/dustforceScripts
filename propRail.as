@@ -3,6 +3,7 @@
 #include "../lib/drawing/Sprite.cpp"
 #include "../lib/drawing/common.cpp"
 #include '../lib/ui/prop-selector/PropSelector.cpp';
+#include '../Alex/prop_group.as';
 const int BASE_SPAWN_RATE = 8000;
 const uint WHITE = 0xFFFFFFFF; 
 const uint GREEN = 0xFF00FF00; 
@@ -10,6 +11,10 @@ const uint WHITE_TRANSPARENT = 0x4AFFFFFF;
 const uint GREEN_TRANSPARENT = 0x4A00FF00; 
 //18-i is scaled at (1-0.05*i) for 18-i >5
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
+
+//TODO: use prop_group.as and wiggle.as to allow for custom props to be used
+//TODO: add functionality to use a sprite instead of a prop
+//TODO: add rotation on line
 
 class script : callback_base {
   [text]array<SpawnHelper@> spawnArr;
@@ -41,7 +46,7 @@ class script : callback_base {
         sh.props.insertLast(@p);
         sh.propids.insertLast(p.id());
       }
-      
+      bool lineDefined = sh.X1 != sh.X2;
       Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
    
       for(uint i = 0; i < sh.props.length(); i++) {
@@ -50,12 +55,19 @@ class script : callback_base {
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
         } else if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
-            if(sh.props[i].x() >= sh.maxX || sh.props[i].x() <= sh.minX) {
+            if(lineDefined && (sh.props[i].x() >= sh.maxX || sh.props[i].x() <= sh.minX)) {
               flipDirection(sh, pr, sh.props[i].x() >= sh.maxX ? -1 : 1);
-            } else {
+            } else if(lineDefined) {
                 pr.x(pr.x() + (sh.speed * sh.direction));
-                pr.y(propPath.getY(pr.x()));
+                pr.y(propPath.getY(pr.x())+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0));
+            } else if(!lineDefined && (sh.props[i].y() >= sh.maxY || sh.props[i].y() <= sh.minY)){
+              flipDirection(sh, pr, sh.props[i].y() >= sh.maxY ? -1 : 1);
+            } else {
+              pr.y(pr.y()+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
+              pr.x(pr.x());
             }
+        } else if(frameCount % sh.frameSkip == 0) {
+          pr.y(pr.y()+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0));
         }
       }
     }
@@ -68,15 +80,22 @@ class script : callback_base {
 
   void flipDirection(SpawnHelper@ sh, prop@ pr, int dir) {
     Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
-
+    bool lineDefined = sh.X1 != sh.X2;
     // Change direction of movement and start moving other way
     sh.direction = dir;
 
     // Flip the prop if needed for X/Y
     pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
     pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
-    pr.x(pr.x() + (sh.speed * sh.direction));
-    pr.y(propPath.getY(pr.x()));
+
+    if(lineDefined) {
+      pr.x(pr.x() + (sh.speed * sh.direction));
+      pr.y(propPath.getY(pr.x()) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
+    } else {
+      pr.x(pr.x());
+      pr.y((sh.speed * sh.direction) + pr.y() + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
+    }
+    
 
     // Decrement lap count
     sh.numLaps--;
@@ -117,10 +136,21 @@ class script : callback_base {
     pr.palette(sh.palette);
     pr.scale_x(sh.scaleX);
     pr.scale_y(sh.scaleY);
-    pr.rotation(sh.rotation);
-    //puts('X1: '+sh.X1+"Y11: "+sh.Y1);
-    pr.x(sh.start == 1 ? sh.X1 : sh.X2);
-    pr.y(sh.Y1);
+    pr.rotation(sh.startingRotation);
+
+    if(sh.start == 1 && sh.X1 != sh.X2) { //Start on left and line isnt vertical
+      pr.x(sh.X1 < sh.X2 ? sh.X1 : sh.X2);
+      pr.y(sh.X1 < sh.X2 ? sh.Y1 : sh.Y2);
+    } else if(sh.start != 1 && sh.X1 != sh.X2){ //Start on right and line isnt vertical
+      pr.x(sh.X1 < sh.X2 ? sh.X2 : sh.X1);
+      pr.y(sh.X1 < sh.X2 ? sh.Y2 : sh.Y1);
+    } else if(sh.start == 1) { //Start on left and line is vertical
+      pr.x(sh.X1);
+      pr.y(sh.Y1 > sh.Y2 ? sh.Y1 : sh.Y2);
+    } else { //Start on right and line is vertical
+      pr.x(sh.X1);
+      pr.y(sh.Y1 > sh.Y2 ? sh.Y2 : sh.Y1);
+    }
     return @pr;
   }
 
@@ -151,6 +181,8 @@ class script : callback_base {
       tmpSH.start = msg.get_int('start');
       tmpSH.numLaps = msg.get_int('numLaps');
       tmpSH.frameSkip = msg.get_int('frameSkip');
+      tmpSH.wobbleAmplitude = msg.get_int('wobbleAmplitude');
+      tmpSH.wobbleSpeed = msg.get_int('wobbleSpeed');
       tmpSH.setStart(tmpSH.start);
       tmpSH.maxX = msg.get_float('maxX');
       tmpSH.minX = msg.get_float('minX');
@@ -162,7 +194,7 @@ class script : callback_base {
       tmpSH.Y2 = msg.get_float('Y2');
       tmpSH.scaleX = msg.get_float('scaleX');
       tmpSH.scaleY = msg.get_float('scaleY');
-      tmpSH.rotation = msg.get_float('rotation');
+      tmpSH.startingRotation = msg.get_float('startingRotation');
       tmpSH.triggerID = msg.get_string('triggerID');
       spawnArr.insertLast(tmpSH);
     }
@@ -182,6 +214,8 @@ class RailTrigger : trigger_base, callback_base {
   [text]int sublayer;
   [text]int speed;
   [text]int frameSkip;
+  [text]int wobbleAmplitude;
+  [text]int wobbleSpeed;
   [hidden] float Y1, Y2;
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
@@ -197,11 +231,12 @@ class RailTrigger : trigger_base, callback_base {
   [text] float scalePropX;
   [text] float scalePropY;
   [hidden] float scale;
-  [angle] float rotation;
+  [angle] float startingRotation;
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
   [hidden] float realX1, realY1, realX2, realY2;
   [hidden] string sprSet, sprName;
+  [hidden] int frameCount;
   scene@ g;
 
   private UI@ ui = UI();
@@ -227,6 +262,7 @@ class RailTrigger : trigger_base, callback_base {
     scalePropX = 1.0f;
     scalePropY = 1.0f;
     numLaps = 0;
+    frameCount = 0;
   }
 
   void init(script@ s, scripttrigger@ self ) {
@@ -240,71 +276,70 @@ class RailTrigger : trigger_base, callback_base {
     sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
     spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
-    spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
-    spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
+    spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
+    spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
     //puts('realX1: '+realX1+"realY1: "+realY1);
   }
 
   void editor_draw(float sub_frame) {
     if(prop_selector.visible)
     {
-      //if(selected_brush_def_index >= 0 && selected_brush_def_index < int(brushes.size()))
-      //{
-        prop_selector.draw();
-        
-        if(prop_selector.result == Selected)
-        {
-          puts("selected");
-          if(prop_selector.result_prop is null) {
-            prop_set = 0;
-            prop_index = 0;
-            prop_group = 0;
-            prop_palette = 0;
-          } else {
-            prop_set = prop_selector.result_prop.set;
-            prop_index = prop_selector.result_prop.index;
-            prop_group = prop_selector.result_prop.group;
-            prop_palette = prop_selector.result_palette;
-          }
-          
-          prop_selector.hide();
-        }
-        else if(prop_selector.result == None)
-        {
+      prop_selector.draw();
+      
+      if(prop_selector.result == Selected)
+      {
+        if(prop_selector.result_prop is null) {
           prop_set = 0;
           prop_index = 0;
           prop_group = 0;
           prop_palette = 0;
-          prop_selector.hide();
+        } else {
+          prop_set = prop_selector.result_prop.set;
+          prop_index = prop_selector.result_prop.index;
+          prop_group = prop_selector.result_prop.group;
+          prop_palette = prop_selector.result_palette;
         }
-      //}
-      //else
-      //{
-        //selected_brush_def_index = -1;
-        //prop_selector.hide();
-      //}
+        
+        prop_selector.hide();
+      }
+      else if(prop_selector.result == None)
+      {
+        prop_set = 0;
+        prop_index = 0;
+        prop_group = 0;
+        prop_palette = 0;
+        prop_selector.hide();
+      }
     }
 
     if(showLines) {
+        //Lines need to be adjusted depending on if X1 > X2, due to that effecting what direction left or right is from the point
         if(start == 1) {
-          draw_arrow(g, 21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-          g.draw_line_world(21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-
-        } else{
-          draw_arrow(g, 21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-          g.draw_line_world(18, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          if(X1 < X2) {
+            draw_arrow(g, 21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+            g.draw_line_world(21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          } else {
+            draw_arrow(g, 21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+            g.draw_line_world(21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          }
+        } else {
+          if(X1 < X2) {
+            draw_arrow(g, 21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+            g.draw_line_world(18, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          } else {
+            draw_arrow(g, 21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+            g.draw_line_world(18, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          }
+          
         }
-
         g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, this.self.editor_selected() ? WHITE : WHITE_TRANSPARENT);
-        
         Y1Backup = Y1;
-        
         drawProps();
     }
   }
   void drawProps() {
-    spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1, rotation, scalePropX, scalePropY, WHITE);
-    spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2, rotation, scalePropX, scalePropY, WHITE);
+    spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
+    spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2 + + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
   }
 
   void editor_step() {
@@ -316,8 +351,8 @@ class RailTrigger : trigger_base, callback_base {
     sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
     spr1.set(sprSet, sprName);
     spr2.set(sprSet, sprName);
-    spr1.real_position(X1, Y1, rotation, realX1, realY1, scalePropX, scalePropY);
-    spr2.real_position(X2, Y2, rotation, realX2, realY2, scalePropX, scalePropY);
+    spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
+    spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
     self.set_xy((tX1 + tX2)/2, (tY1 + tY2)/2);
 
     if(!prop_selector.visible && selectProp)
@@ -338,6 +373,7 @@ class RailTrigger : trigger_base, callback_base {
       self.editor_sync_vars_menu();
     }
     //puts('realX1: '+realX1+"realY1: "+realY1);
+    frameCount++;
   }
 
   void step() {
@@ -358,6 +394,8 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
       msg.set_int('frameSkip', frameSkip == 0 ? 1 : frameSkip);
+      msg.set_int('wobbleAmplitude', wobbleAmplitude);
+      msg.set_int('wobbleSpeed', wobbleSpeed);
       if(layer > 5 ) {
         msg.set_float('maxX', realX1 > realX2? realX1:realX2);
         msg.set_float('minX', realX1 > realX2? realX2:realX1);
@@ -380,7 +418,7 @@ class RailTrigger : trigger_base, callback_base {
       
       msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
       msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
-      msg.set_float('rotation', rotation);
+      msg.set_float('startingRotation', startingRotation);
       broadcast_message('OnMyCustomEventName', msg);
     }
   }
@@ -505,14 +543,15 @@ class RailTrigger : trigger_base, callback_base {
 class SpawnHelper {
   [text]int speed, layer, sublayer, set, group, index, palette, direction, start;
   [text]bool exists;
-  //[option,1:Cloud1,2:Cloud2,3:Cloud3,4:Cloud4,5:Cloud5,6:Cloud6]
   [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2;
   [text]float scaleX, scaleY;
   [text]string triggerID;
   [text]int frameSkip;
+  [text]int wobbleAmplitude;
+  [text]int wobbleSpeed;
   [hidden]array<prop@> props;
   [hidden]array<int32> propids;
-  [hidden]float rotation;
+  [hidden]float startingRotation;
   [hidden]bool runNTimes;
   [hidden]bool flipx;
   [hidden]bool flipy;
@@ -542,8 +581,10 @@ class SpawnHelper {
     Y2 = 0;
     scaleX = 0;
     scaleY = 0;
-    rotation = 0;
+    startingRotation = 0;
     frameSkip = 1;
+    wobbleAmplitude = 0;
+    wobbleSpeed = 0;
   }
 
   void setStart(int dir) {
