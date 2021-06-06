@@ -1,14 +1,12 @@
 #include "../lib/math/Line.cpp";
 #include "../lib/props/common.cpp"
 #include "../lib/drawing/Sprite.cpp"
-//TODO: update logic to handle case where trigger is unloaded, and player hits checkpoint
 const int BASE_SPAWN_RATE = 8000;
 const uint WHITE = 0xFFFFFFFF; 
 const uint GREEN = 0xFF00FF00; 
 const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
 const uint GREEN_TRANSPARENT = 0x4A00FF00; 
 const uint FRAME_SKIP = 2;
-
 //18-i is scaled at (1-0.05*i) for 18-i >5
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
 
@@ -183,7 +181,6 @@ class RailTrigger : trigger_base, callback_base {
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
   [text]bool showLines;
-
   [text]bool flipx;
   [text]bool flipy;
   [text]bool runNTimes;
@@ -196,7 +193,6 @@ class RailTrigger : trigger_base, callback_base {
   [text] float scalePropY;
   [hidden] float scale;
   [angle] float rotation;
-  //TODO: remove?
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
   [hidden] float realX1, realY1, realX2, realY2;
@@ -322,7 +318,7 @@ class RailTrigger : trigger_base, callback_base {
     minY = Y1 > Y2 ? Y2 : Y1;
   }
   
-    //Update crap logic here, not scaling correctly
+  //Update crap logic here, not scaling correctly
   //18-i is scaled at (1-0.05*i) for 18-i >5
   //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
   void scaleXY() {
@@ -346,10 +342,6 @@ class RailTrigger : trigger_base, callback_base {
     tMinX = minX - (diffX / 2);
     tMaxY = maxY + (diffY / 2);
     tMinY = minY - (diffY / 2);
-
-    
-
-
   }
   
   //Please do not look at this method
@@ -433,7 +425,6 @@ class RailTrigger : trigger_base, callback_base {
 }
 
 class SpawnHelper {
-
   [text]int speed, layer, sublayer, set, group, index, palette, direction, start;
   [text]bool exists;
   //[option,1:Cloud1,2:Cloud2,3:Cloud3,4:Cloud4,5:Cloud5,6:Cloud6]
