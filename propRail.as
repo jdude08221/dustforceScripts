@@ -575,7 +575,6 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_float('s_scalePropX', scalePropX);
       msg.set_float('s_scalePropY', scalePropY);
       msg.set_string('s_spriteName', 'spr'+spriteName);
-      puts('spr'+spriteName);
      frameSkip = frameSkip == 0 ? 1 : frameSkip;
       if(frameCount % frameSkip == 0) {
         if(((previewRotation >= startingRotation + rotationClockwise) || 
