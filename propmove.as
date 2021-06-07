@@ -1,3 +1,4 @@
+//TODO: update logic to handle case where trigger is unloaded, and player hits checkpoint
 const int BASE_SPAWN_RATE = 8000;
 
 //18-i is scaled at (1-0.05*i) for 18-i >5
@@ -7,7 +8,7 @@ class script : callback_base {
   [text]array<SpawnHelper@> spawnArr;
   scene@ g;
   int frame_cp;
-  
+  [hidden]array<SpawnHelper@> savedClouds;
 
   array<int> triggerIDs;
   
@@ -21,7 +22,6 @@ class script : callback_base {
   void step(int entities) {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
-      
       //Random number to determine if we should spawn a cloud
       uint32 r1 = rand();
         
@@ -39,13 +39,14 @@ class script : callback_base {
         prop @pr = sh.props[i];
         
         if(@pr == null) {
+          //puts("removed");
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
         } else if(sh.props[i].x() >= sh.maxX) {
           g.remove_prop(@pr);
           sh.props.removeAt(i);
           sh.propids.removeAt(i);
-          puts("removed ids:" + sh.propids.length() + " props:" + sh.props.length());
+          //puts("removed ids:" + sh.propids.length() + " props:" + sh.props.length());
         } else { 
           pr.x(pr.x() + sh.speed);
         }
@@ -70,18 +71,61 @@ class script : callback_base {
   }
   
   void checkpoint_save() {
+    array<SpawnHelper@> temp;
+    //TODO: save prop positions on checkpoint save
+    for(uint j = 0; j < spawnArr.length(); j++) {
+      if(spawnArr.length() == 0) {
+        return;
+      }
+
+      //We need to re-query for props in the selection area due to props losing their ids upon reloading a checkpoint
+      SpawnHelper sh = spawnArr[j];
+      sh.props.resize(0);
+      sh.propids.resize(0);
+      int propCount = g.get_prop_collision(sh.minY, sh.maxY, sh.minX, sh.maxX);
+      for(uint i = 0; i < propCount; i++) {
+        //puts("y1 "+sh.minY+" y2 "+sh.maxY+" x1 "+sh.minX+" x2 "+sh.maxX);
+        if((g.get_prop_collision_index(i).prop_index() == (sh.chosenCloud <= 3 ? sh.chosenCloud : sh.chosenCloud - 3)) &&
+          (g.get_prop_collision_index(i).prop_group() == 22) &&
+          (g.get_prop_collision_index(i).prop_set() == (sh.chosenCloud <= 3 ? 1 : 2))) {
+            sh.props.insertLast(g.get_prop_collision_index(i));
+            sh.propids.insertLast(g.get_prop_collision_index(i).id());
+          }
+      }
+      temp.insertLast(@sh);
+    }
+
+    savedClouds = temp;
   }
 
   void checkpoint_load() {
-    for(uint j = 0; j < spawnArr.length(); j++) {
-      SpawnHelper@ sh = spawnArr[j];
-      puts("load ids:" + sh.propids.length() + " props:" + sh.props.length());
-      for(uint i = 0; i < sh.props.length(); i++) {
-        if(@sh.props[i] != null) {
-            @sh.props[i] = prop_by_id(sh.props[i].id());
-        }
-      }
+    //TODO: spawn clouds based on saved clouds
+    spawnArr.resize(savedClouds.length());
+    for(uint i = 0; i < savedClouds.length(); i++) {
+      puts("load");
+      spawnArr[i] = savedClouds[i];
     }
+
+    /*bool firstTry = true;   
+    for(uint j = 0; j < spawnArr.length(); j++) {
+      if(spawnArr.length() == 0) {
+        return;
+      }
+    
+      //We need to re-query for props in the selection area due to props losing their ids upon reloading a checkpoint
+      SpawnHelper sh = spawnArr[j];
+      int propCount = g.get_prop_collision(sh.minY, sh.maxY, sh.minX, sh.maxX);
+      for(int i = 0; i < propCount; i++) {
+        //puts("y1 "+sh.minY+" y2 "+sh.maxY+" x1 "+sh.minX+" x2 "+sh.maxX);
+        if((g.get_prop_collision_index(i).prop_index() == (sh.chosenCloud <= 3 ? sh.chosenCloud : sh.chosenCloud - 3)) &&
+          (g.get_prop_collision_index(i).prop_group() == 22) &&
+          (g.get_prop_collision_index(i).prop_set() == (sh.chosenCloud <= 3 ? 1 : 2))) {
+            @sh.props[i] = g.get_prop_collision_index(i);
+            //puts("cloudfound");
+          }
+      }
+    }*/
+    //makeFirstProps();
   }
   
   void editor_step() {
@@ -97,9 +141,7 @@ class script : callback_base {
   }
  
   prop@ makeCloud(float inX, SpawnHelper@ sh) {
-    //puts("chosenCloud:" + sh.chosenCloud + " randomWhiteClouds:" + sh.randomWhiteClouds);
     updateChosenCloud(sh);
-    //puts("Spawning cloud " + sh.chosenCloud);
     float r2 = rand() % 100;
     r2 /= 100;
     prop@ pr = create_prop();
@@ -140,7 +182,7 @@ class script : callback_base {
     if(msg.get_string('triggerType') == 'cloudMove') {
       SpawnHelper@ tmpSH = SpawnHelper();
       if(@tmpSH == null) {
-        puts('tmpsh');
+        
       }
       
       // Yeah I should have used a dictionary
@@ -165,7 +207,7 @@ class script : callback_base {
       tmpSH.minY = msg.get_float('minY');
       tmpSH.scale = msg.get_float('scale');
       tmpSH.triggerID = msg.get_string('triggerID');
-      puts("ID: " + tmpSH.triggerID);
+      //puts("ID: " + tmpSH.triggerID);
       spawnArr.insertLast(tmpSH);
     }
   }
@@ -207,7 +249,7 @@ class CloudTrigger : trigger_base, callback_base {
     scale = 1;
     sendMessage = true;
     name = "cloudTrigger";
-    add_broadcast_receiver('OnMyCustomEventNameAck', this, 'OnMyCustomEventNameAck');
+    add_broadcast_receiver(this, 'OnMyCustomEventNameAck');
   }
   
   void init(script@ s, scripttrigger@ self ) {

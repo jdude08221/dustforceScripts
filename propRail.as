@@ -4,7 +4,14 @@
 #include "../lib/drawing/common.cpp"
 #include '../lib/ui/prop-selector/PropSelector.cpp';
 #include '../Alex/prop_group.as';
+
+const string EMBED_spr1 = "propRail/spr1.png"; 
+const string EMBED_spr2 = "propRail/spr2.png"; 
+const string EMBED_spr3 = "propRail/spr3.png"; 
+const string EMBED_spr4 = "propRail/spr4.png";
+
 const int BASE_SPAWN_RATE = 8000;
+const int NUM_SPRITES = 4;
 const uint WHITE = 0xFFFFFFFF; 
 const uint GREEN = 0xFF00FF00; 
 const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
@@ -13,7 +20,6 @@ const uint GREEN_TRANSPARENT = 0x4A00FF00;
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
 
 //TODO: use prop_group.as and wiggle.as to allow for custom props to be used
-//TODO: add functionality to use a sprite instead of a prop
 //TODO: add rotation on line
 
 class script : callback_base {
@@ -21,35 +27,81 @@ class script : callback_base {
   scene@ g;
   int frame_cp;
   int frameCount;
+  sprites@ spr;
   [hidden]array<SpawnHelper@> savedClouds;
   bool exists = false;
   array<int> triggerIDs;
+  bool s_drawSprites;
+  [hidden]int s_layer, s_sublayer, s_palette;
+  [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX,
+  s_scalePropY;
+  [hidden]string s_spriteName;
 
   script() {
     frameCount = 0;
     @g = get_scene();
     srand(timestamp_now());
+    @spr = create_sprites();
     add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
     //override_stream_sizes(100, 8);
   }
 
-  void on_level_start() {}
+    void build_sprites(message@ msg) {
+      msg.set_string("spr1","spr1");
+      msg.set_string("spr2","spr2"); 
+      msg.set_string("spr3","spr3"); 
+      msg.set_string("spr4","spr4"); 
+  }
 
-  void step(int entities) {  
+  void on_level_start() {
+    spr.add_sprite_set("script");
+  }
+  void draw(float subframe) {
+    for(uint j = 0; j < spawnArr.length(); j++) {
+      SpawnHelper@ sh = spawnArr[j];
+      if(sh.isSprite) {
+        spr.draw_world(sh.layer, sh.sublayer, sh.spriteName, 0, 1, sh.sprx, sh.spry, 
+                          sh.startingRotation, sh.scaleX, sh.scaleY, 0xFFFFFFFF);
+      }
+    }
+  }
+  void step(int entities) {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
       
-      if (!sh.exists) {
+      if (!sh.exists && !sh.isSprite) {
         sh.exists = true;
         prop @p = makeProp(@sh);
         g.add_prop(@p);
         sh.props.insertLast(@p);
         sh.propids.insertLast(p.id());
+      } else if(!sh.exists && sh.isSprite) {
+        sh.exists = true;
       }
+
       bool lineDefined = sh.X1 != sh.X2;
       Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
    
+      if(sh.isSprite) {
+        if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
+          if(lineDefined && (sh.sprx >= sh.maxX || sh.sprx <= sh.minX)) {
+            flipDirectionSpr(sh, sh.sprx >= sh.maxX ? -1 : 1);
+          } else if(lineDefined) {
+              sh.sprx = sh.sprx + (sh.speed * sh.direction);
+              sh.spry = propPath.getY(sh.sprx)+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+          } else if(!lineDefined && (sh.spry >= sh.maxY || sh.spry <= sh.minY)){
+            flipDirectionSpr(sh, sh.spry >= sh.maxY ? -1 : 1);
+          } else {
+            sh.spry = (sh.spry+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
+            sh.sprx = sh.sprx;
+          }
+        } else if(frameCount % sh.frameSkip == 0) {
+          sh.spry = sh.spry+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+        }
+      }
+
       for(uint i = 0; i < sh.props.length(); i++) {
+        //Not a prop, using a sprite
         prop @pr = sh.props[i];
         if(@pr == null) { //If somehow we lost the handle, remove the prop from our array
           sh.props.removeAt(i);
@@ -76,6 +128,28 @@ class script : callback_base {
   
   bool continueLaps(SpawnHelper@ sh) {
     return !sh.runNTimes || (sh.runNTimes && sh.numLaps >= 0);
+  }
+
+  void flipDirectionSpr(SpawnHelper@ sh, int dir) {
+    Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
+    bool lineDefined = sh.X1 != sh.X2;
+    // Change direction of movement and start moving other way
+    sh.direction = dir;
+
+    // Flip the prop if needed for X/Y
+    sh.scaleX = sh.flipx ? -1 * sh.scaleX : sh.scaleX;
+    sh.scaleY = sh.flipy ? -1 * sh.scaleY : sh.scaleY;
+
+    if(lineDefined) {
+      sh.sprx = sh.sprx + (sh.speed * sh.direction);
+      sh.spry = propPath.getY(sh.sprx) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0));
+    } else {
+      sh.spry = (sh.speed * sh.direction) + sh.spry + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0));
+    }
+    
+
+    // Decrement lap count
+    sh.numLaps--;
   }
 
   void flipDirection(SpawnHelper@ sh, prop@ pr, int dir) {
@@ -115,6 +189,7 @@ class script : callback_base {
   }
   
   void editor_step() {
+    spr.add_sprite_set("script");
     for(uint j = 0; j < spawnArr.length(); j++) {
        SpawnHelper@ sh = spawnArr[j];
        for(uint i = 0; i < sh.props.length(); i++) {
@@ -125,7 +200,17 @@ class script : callback_base {
       }
     }
   }
- 
+
+  void editor_draw(float sub_frame) {
+    //draw sprite preview
+    if(s_drawSprites){
+      spr.draw_world(s_layer, s_sublayer, s_spriteName, 0, 1, s_x1, s_y1,
+                          s_startingRotation, s_scalePropX, s_scalePropY, 0xFFFFFFFF);
+      spr.draw_world(s_layer, s_sublayer, s_spriteName, 0, 1, s_x2, s_y2,
+                          s_startingRotation, s_scalePropX, s_scalePropY, 0xFFFFFFFF);
+    }
+  }
+
   prop@ makeProp(SpawnHelper@ sh) {
     prop@ pr = create_prop();
     pr.layer(sh.layer);
@@ -155,7 +240,6 @@ class script : callback_base {
   }
 
   void OnMyCustomEventName(string id, message@ msg) {
-
     if(msg.get_string('triggerType') == 'cloudMove') {
       SpawnHelper@ tmpSH = SpawnHelper();
       if(@tmpSH == null) {
@@ -167,13 +251,15 @@ class script : callback_base {
         if(msg.get_string('triggerID') == spawnArr[i].triggerID) {
           return;
         }
-      }  
+      }
       tmpSH.speed = msg.get_int('speed');
       tmpSH.layer = msg.get_int('layer');
       tmpSH.sublayer = msg.get_int('sublayer');
       tmpSH.runNTimes = msg.get_int('runNTimes') == 1;
       tmpSH.flipx = msg.get_int('flipx') == 1;
       tmpSH.flipy = msg.get_int('flipy') == 1;
+      tmpSH.isSprite = msg.get_int('isSprite') == 1;
+      tmpSH.spriteName = msg.get_string('spriteName');
       tmpSH.set = msg.get_int('set');
       tmpSH.group = msg.get_int('group');
       tmpSH.index = msg.get_int('index');
@@ -196,7 +282,41 @@ class script : callback_base {
       tmpSH.scaleY = msg.get_float('scaleY');
       tmpSH.startingRotation = msg.get_float('startingRotation');
       tmpSH.triggerID = msg.get_string('triggerID');
+
+      if(tmpSH.start == 1) {// If left to right
+        if(tmpSH.X1 != tmpSH.X2) {// Not vertical line
+          tmpSH.sprx = tmpSH.X1 > tmpSH.X2 ? tmpSH.X2 : tmpSH.X1;
+          tmpSH.spry = tmpSH.X1 > tmpSH.X2 ? tmpSH.Y2 : tmpSH.Y1;
+        } else { // Vertical line
+          tmpSH.sprx = tmpSH.X1;
+          tmpSH.spry = tmpSH.Y1 > tmpSH.Y2 ? tmpSH.Y1 : tmpSH.Y2;
+        }
+      } else {
+        if(tmpSH.X1 != tmpSH.X2) {// Not vertical line
+          tmpSH.sprx = tmpSH.X1 > tmpSH.X2 ? tmpSH.X1 : tmpSH.X2;
+          tmpSH.spry = tmpSH.X1 > tmpSH.X2 ? tmpSH.Y1 : tmpSH.Y2;
+        } else { // Vertical line
+          tmpSH.sprx = tmpSH.X1;
+          tmpSH.spry = tmpSH.Y1 > tmpSH.Y2 ? tmpSH.Y2 : tmpSH.Y1;
+        }
+      }
+
       spawnArr.insertLast(tmpSH);
+    } else if(msg.get_int('s_drawSprites') == 1) {
+      s_drawSprites = msg.get_int('s_drawSprites') == 1;
+      s_layer = msg.get_int('s_layer');
+      s_sublayer = msg.get_int('s_sublayer');
+      s_palette = msg.get_int('s_palette');
+      s_x1 = msg.get_float('s_x1');
+      s_y1 = msg.get_float('s_y1');
+      s_x2 = msg.get_float('s_x2');
+      s_y2 = msg.get_float('s_y2');
+      s_startingRotation = msg.get_float('s_startingRotation');
+      s_scalePropX = msg.get_float('s_scalePropX');
+      s_scalePropY = msg.get_float('s_scalePropY');
+      s_spriteName = msg.get_string('s_spriteName');
+    } else if(msg.get_int('s_drawSprites') == 2) {
+      s_drawSprites = false;
     }
   }
 }
@@ -209,6 +329,7 @@ class RailTrigger : trigger_base, callback_base {
   [hidden]int prop_group;
   [hidden]int prop_index;
   [hidden]int prop_palette;
+  [hidden]bool drawSpriteEditor;
   [text] bool selectProp;
   [text]int layer;
   [text]int sublayer;
@@ -219,10 +340,12 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] float Y1, Y2;
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
+  [option,1:Sprite1,2:Sprite2,3:Sprite3,4:Sprite4]int spriteName;
   [text]bool showLines;
   [text]bool flipx;
   [text]bool flipy;
   [text]bool runNTimes;
+  [text]bool isSprite;
   [text]int numLaps;
   [option,0:Right,1:Left] int start;
   [hidden] float Y1Backup;
@@ -263,6 +386,8 @@ class RailTrigger : trigger_base, callback_base {
     scalePropY = 1.0f;
     numLaps = 0;
     frameCount = 0;
+    drawSpriteEditor = false;
+    isSprite = false;
   }
 
   void init(script@ s, scripttrigger@ self ) {
@@ -273,11 +398,14 @@ class RailTrigger : trigger_base, callback_base {
     getScale();
     scaleXY();
     //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
-    sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
-    spr1.set(sprSet, sprName);
-    spr2.set(sprSet, sprName);
-    spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
-    spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
+    if(!isSprite) {
+      sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
+      spr1.set(sprSet, sprName);
+      spr2.set(sprSet, sprName);
+      spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
+      spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
+    }
+    
     //puts('realX1: '+realX1+"realY1: "+realY1);
   }
 
@@ -338,21 +466,49 @@ class RailTrigger : trigger_base, callback_base {
     }
   }
   void drawProps() {
-    spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
-    spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2 + + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
+    if(!isSprite) {
+      //Draw the prop preview with wobble
+      spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
+      spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2 + + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
+    }
   }
 
   void editor_step() {
+    
     ui.step();
     getMaxMinXY();
     getScale();
     scaleXY();
-    //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
-    sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
-    spr1.set(sprSet, sprName);
-    spr2.set(sprSet, sprName);
-    spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
-    spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
+
+    if(isSprite) {
+      message@ msg = create_message();
+      msg.set_int('s_drawSprites', isSprite ? 1:2);
+      msg.set_int('s_layer', layer);
+      msg.set_int('s_sublayer', sublayer);
+      msg.set_int('s_palette', prop_palette);
+      msg.set_float('s_x1', X1);
+      msg.set_float('s_y1', Y1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
+      msg.set_float('s_x2', X2 );
+      msg.set_float('s_y2', Y2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
+      msg.set_float('s_startingRotation', startingRotation);
+      msg.set_float('s_scalePropX', scalePropX);
+      msg.set_float('s_scalePropY', scalePropY);
+      msg.set_string('s_spriteName', 'spr'+spriteName);
+      broadcast_message('OnMyCustomEventName', msg);
+      // spr1.draw(layer, sublayer, 0, prop_palette, 
+      // tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), 
+      // startingRotation, scalePropX, scalePropY, WHITE);
+    } else {
+      message@ msg = create_message();
+      msg.set_int('s_drawSprites', isSprite ? 1:2);
+      broadcast_message('OnMyCustomEventName', msg);
+      sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
+      spr1.set(sprSet, sprName);
+      spr2.set(sprSet, sprName);
+      spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
+      spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
+    }
+
     self.set_xy((tX1 + tX2)/2, (tY1 + tY2)/2);
 
     if(!prop_selector.visible && selectProp)
@@ -390,12 +546,20 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('palette', prop_palette);
       msg.set_int('start', start);
       msg.set_int('runNTimes', runNTimes ? 1:0);
+      msg.set_int('isSprite', isSprite ? 1:0);
+      msg.set_string('spriteName', 'spr'+spriteName);
       msg.set_int('numLaps', numLaps);
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
       msg.set_int('frameSkip', frameSkip == 0 ? 1 : frameSkip);
       msg.set_int('wobbleAmplitude', wobbleAmplitude);
       msg.set_int('wobbleSpeed', wobbleSpeed);
+      if(isSprite) {
+        realX1 = tX1;
+        realX2 = tX2;
+        realY1 = tY1;
+        realY2 = tY2;
+      }
       if(layer > 5 ) {
         msg.set_float('maxX', realX1 > realX2? realX1:realX2);
         msg.set_float('minX', realX1 > realX2? realX2:realX1);
@@ -543,6 +707,7 @@ class RailTrigger : trigger_base, callback_base {
 class SpawnHelper {
   [text]int speed, layer, sublayer, set, group, index, palette, direction, start;
   [text]bool exists;
+  [hidden]bool isSprite;
   [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2;
   [text]float scaleX, scaleY;
   [text]string triggerID;
@@ -550,8 +715,10 @@ class SpawnHelper {
   [text]int wobbleAmplitude;
   [text]int wobbleSpeed;
   [hidden]array<prop@> props;
+  [hidden]string spriteName;
   [hidden]array<int32> propids;
   [hidden]float startingRotation;
+  [hidden]float sprx,spry;
   [hidden]bool runNTimes;
   [hidden]bool flipx;
   [hidden]bool flipy;
@@ -565,6 +732,8 @@ class SpawnHelper {
     runNTimes = false;
     flipx = false;
     flipy = false;
+    isSprite = false;
+    spriteName = "spr1";
     maxX = 0;
     minX = 0;
     maxY = 0;
@@ -581,6 +750,8 @@ class SpawnHelper {
     Y2 = 0;
     scaleX = 0;
     scaleY = 0;
+    sprx = 0;
+    spry = 0;
     startingRotation = 0;
     frameSkip = 1;
     wobbleAmplitude = 0;

@@ -16,7 +16,7 @@ class script : callback_base {
   audio@ musicHandle; // At the moment, this is unused.
   
   [slider,min:0,max:100] float musicVolume;
-  
+  [text] bool stopMusic;
   array<string> sounds(NUM_SOUNDS);
   array<bool> isFading(NUM_SOUNDS);
   array<float> fadeTime(NUM_SOUNDS);
@@ -32,7 +32,7 @@ class script : callback_base {
 
     array<int> fadeTime = {0,0,0,0,0};
     array<float> volume = {0,0,0,0,0};
-
+    stopMusic = false;
     array<audio@> audioHandles = {null, null, null, null, null};
 
     sounds[0] = EMBED_sound1.split(".")[0];
@@ -66,7 +66,8 @@ class script : callback_base {
   }
  
   void on_level_start() {
-     @audioHandles[NUM_SOUNDS-1] = g.play_persistent_stream(EMBED_sound5.split(".")[0], 1, 1, musicVolume/100, true);
+    puts("play");
+     @audioHandles[NUM_SOUNDS-1] = g.play_persistent_stream(EMBED_sound5.split(".")[0], 1, true, musicVolume/100, true);
      volume[NUM_SOUNDS - 1] = musicVolume/100;
      fadeTime[NUM_SOUNDS - 1] = 0;
   }
@@ -79,7 +80,14 @@ class script : callback_base {
     msg.set_string(EMBED_sound5.split(".")[0], "sound5"); //music
     //msg.set_int("sound5|loop", 211005); //SET SAMPLES HERE
   }
-   
+
+  void editor_step() {
+    if(stopMusic) {
+      g.stop_persistent_stream(EMBED_sound5.split(".")[0]);
+    }
+    stopMusic = false;
+  }
+
   void step(int entities) {
   
     // if volume was changed, start fading audio tracks
