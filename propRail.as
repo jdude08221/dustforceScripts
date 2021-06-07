@@ -24,12 +24,9 @@ const uint GREEN_TRANSPARENT = 0x4A00FF00;
 class script : callback_base {
   [text]array<SpawnHelper@> spawnArr;
   scene@ g;
-  int frame_cp;
   int frameCount;
   sprites@ spr;
-  [hidden]array<SpawnHelper@> savedClouds;
   bool exists = false;
-  array<int> triggerIDs;
   bool s_drawSprites;
   [hidden]int s_layer, s_sublayer, s_palette;
   [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX, s_scalePropY, s_rotationSpeed;
@@ -60,12 +57,9 @@ class script : callback_base {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
       if(sh.isSprite) {
-        spr1.set("script", sh.spriteName);
-        spr1.draw(sh.layer, sh.sublayer, 0, 1, sh.sprx, 
+        spr1.set(sh.spriteSet, sh.spriteName);
+        spr1.draw(sh.layer, sh.sublayer, 0, sh.palette, sh.sprx, 
               sh.spry, sh.sprRotation, sh.scaleX, sh.scaleY, WHITE);
-
-        //spr.draw_world(sh.layer, sh.sublayer, sh.spriteName, 0, 1, sh.sprx, sh.spry, 
-                        //  sh.sprRotation, sh.scaleX, sh.scaleY, 0xFFFFFFFF);
       }
     }
   }
@@ -73,70 +67,33 @@ class script : callback_base {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
       
-      if (!sh.exists && !sh.isSprite) {
-        sh.exists = true;
-        prop @p = makeProp(@sh);
-        g.add_prop(@p);
-        sh.props.insertLast(@p);
-        sh.propids.insertLast(p.id());
-      } else if(!sh.exists && sh.isSprite) {
+      if(!sh.exists) {
         sh.exists = true;
       }
 
       bool lineDefined = sh.X1 != sh.X2;
       Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
-   
-      if(sh.isSprite) {
-        if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
-          if(lineDefined && (sh.sprx >= sh.maxX || sh.sprx <= sh.minX)) {
-            flipDirectionSpr(sh, sh.sprx >= sh.maxX ? -1 : 1);
-          } else if(lineDefined) {
-              sh.sprx = sh.sprx + (sh.speed * sh.direction);
-              sh.spry = propPath.getY(sh.sprx) + sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
-          } else if(!lineDefined && (sh.spry >= sh.maxY || sh.spry <= sh.minY)){
-            flipDirectionSpr(sh, sh.spry >= sh.maxY ? -1 : 1);
-          } else {
-            sh.spry = (sh.spry+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
-            sh.sprx = sh.sprx;
-          }
-          rotateSprite(sh);
-        } else if(frameCount % sh.frameSkip == 0) {
-
-          //Record the final y value for a smooth wobble
-          if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
-            sh.finalY = sh.spry;
-          }
-          sh.spry = sh.finalY+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
-          rotateSprite(sh);
+      if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
+        if(lineDefined && (sh.sprx >= sh.maxX || sh.sprx <= sh.minX)) {
+          flipDirectionSpr(sh, sh.sprx >= sh.maxX ? -1 : 1);
+        } else if(lineDefined) {
+            sh.sprx = sh.sprx + (sh.speed * sh.direction);
+            sh.spry = propPath.getY(sh.sprx) + sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+        } else if(!lineDefined && (sh.spry >= sh.maxY || sh.spry <= sh.minY)){
+          flipDirectionSpr(sh, sh.spry >= sh.maxY ? -1 : 1);
+        } else {
+          sh.spry = (sh.spry+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
+          sh.sprx = sh.sprx;
         }
-      }
+        rotateSprite(sh);
+      } else if(frameCount % sh.frameSkip == 0) {
 
-      for(uint i = 0; i < sh.props.length(); i++) {
-        prop @pr = sh.props[i];
-        if(@pr == null) { //If somehow we lost the handle, remove the prop from our array
-          sh.props.removeAt(i);
-          sh.propids.removeAt(i);
-        } else if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
-            if(lineDefined && (sh.props[i].x() >= sh.maxX || sh.props[i].x() <= sh.minX)) {
-              flipDirection(sh, pr, sh.props[i].x() >= sh.maxX ? -1 : 1);
-            } else if(lineDefined) {
-                pr.x(pr.x() + (sh.speed * sh.direction));
-                pr.y(propPath.getY(pr.x())+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0));
-            } else if(!lineDefined && (sh.props[i].y() >= sh.maxY || sh.props[i].y() <= sh.minY)){
-              flipDirection(sh, pr, sh.props[i].y() >= sh.maxY ? -1 : 1);
-            } else {
-              pr.y(pr.y() + (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
-              pr.x(pr.x());
-            }
-            rotateProp(sh, pr);
-        } else if(frameCount % sh.frameSkip == 0) {
-          //Record the final y value for a smooth wobble
-          if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
-            sh.finalY = pr.y();
-          }
-          pr.y(sh.finalY + sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0));
-          rotateProp(sh, pr);
+        //Record the final y value for a smooth wobble
+        if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
+          sh.finalY = sh.spry;
         }
+        sh.spry = sh.finalY+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+        rotateSprite(sh);
       }
     }
     frameCount++;
@@ -144,36 +101,6 @@ class script : callback_base {
   
   bool continueLaps(SpawnHelper@ sh) {
     return !sh.runNTimes || (sh.runNTimes && sh.numLaps >= 0);
-  }
-
-  void rotateProp(SpawnHelper@ sh, prop@ pr) {
-    if(sh.rotateClockwiseOnly) {
-       pr.rotation(pr.rotation() + sh.rotationSpeed);
-      return;
-    } else if(sh.rotateCounterClockwiseOnly) {
-      pr.rotation(pr.rotation() - sh.rotationSpeed);
-      return;
-    }
-
-    //If we are at the end of a rotation cycle and the pause timer still has time left,
-    if(((pr.rotation() >= sh.startingRotation + sh.rotationClockwise) || 
-    (pr.rotation() <= sh.startingRotation - sh.rotationCounterClockwise)) &&
-    (sh.pauseTimer > 0)) {
-      //Decrement the timer and return in order to NOT rotate the prop for pauseTimer# frames
-      sh.pauseTimer--;
-      return;
-    } else {
-      sh.pauseTimer = sh.rotationPause;
-    }
-
-    pr.rotation(pr.rotation() + sh.rotationSpeed * sh.rotationDir);
-    if(pr.rotation() >= sh.startingRotation + sh.rotationClockwise) {
-      pr.rotation( sh.startingRotation + sh.rotationClockwise);
-      sh.rotationDir *= -1;
-    } else if(pr.rotation() <= sh.startingRotation - sh.rotationCounterClockwise) {
-      pr.rotation(sh.startingRotation - sh.rotationCounterClockwise);
-      sh.rotationDir *= -1;
-    }
   }
 
   void rotateSprite(SpawnHelper@ sh) {
@@ -229,53 +156,13 @@ class script : callback_base {
     sh.numLaps--;
   }
 
-  void flipDirection(SpawnHelper@ sh, prop@ pr, int dir) {
-    Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
-    bool lineDefined = sh.X1 != sh.X2;
-    // Change direction of movement and start moving other way
-    sh.direction = dir;
-
-    // Flip the prop if needed for X/Y
-    pr.scale_x(sh.flipx ? -1 * pr.scale_x() : pr.scale_x());
-    pr.scale_y(sh.flipy ? -1 * pr.scale_y() : pr.scale_y());
-
-    if(lineDefined) {
-      pr.x(pr.x() + (sh.speed * sh.direction));
-      pr.y(propPath.getY(pr.x()) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
-    } else {
-      pr.x(pr.x());
-      pr.y((sh.speed * sh.direction) + pr.y() + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
-    }
-    
-
-    // Decrement lap count
-    sh.numLaps--;
-  }
-
   void checkpoint_save() { }
 
   void checkpoint_load() {
-    for(uint j = 0; j < spawnArr.length(); j++) {
-      SpawnHelper@ sh = spawnArr[j];
-      for(uint i = 0; i < sh.props.length(); i++) {
-        if(@sh.props[i] != null) {
-            @sh.props[i] = prop_by_id(sh.props[i].id());
-        }
-      }
-    }
   }
   
   void editor_step() {
     spr.add_sprite_set("script");
-    for(uint j = 0; j < spawnArr.length(); j++) {
-       SpawnHelper@ sh = spawnArr[j];
-       for(uint i = 0; i < sh.props.length(); i++) {
-        if(@sh.props[i] != null && @prop_by_id(sh.props[i].id()) != null) {
-          g.remove_prop(prop_by_id(sh.props[i].id()));
-          sh.props.removeAt(i);
-        }
-      }
-    }
   }
 
   void editor_draw(float sub_frame) {
@@ -293,36 +180,8 @@ class script : callback_base {
     }
   }
 
-  prop@ makeProp(SpawnHelper@ sh) {
-    prop@ pr = create_prop();
-    pr.layer(sh.layer);
-    pr.sub_layer(sh.sublayer);
-    pr.prop_set(sh.set);
-    pr.prop_group(sh.group);
-    pr.prop_index(sh.index);
-    pr.palette(sh.palette);
-    pr.scale_x(sh.scaleX);
-    pr.scale_y(sh.scaleY);
-    pr.rotation(sh.startingRotation);
-
-    if(sh.start == 1 && sh.X1 != sh.X2) { //Start on left and line isnt vertical
-      pr.x(sh.X1 < sh.X2 ? sh.X1 : sh.X2);
-      pr.y(sh.X1 < sh.X2 ? sh.Y1 : sh.Y2);
-    } else if(sh.start != 1 && sh.X1 != sh.X2){ //Start on right and line isnt vertical
-      pr.x(sh.X1 < sh.X2 ? sh.X2 : sh.X1);
-      pr.y(sh.X1 < sh.X2 ? sh.Y2 : sh.Y1);
-    } else if(sh.start == 1) { //Start on left and line is vertical
-      pr.x(sh.X1);
-      pr.y(sh.Y1 > sh.Y2 ? sh.Y1 : sh.Y2);
-    } else { //Start on right and line is vertical
-      pr.x(sh.X1);
-      pr.y(sh.Y1 > sh.Y2 ? sh.Y2 : sh.Y1);
-    }
-    return @pr;
-  }
-
   void OnMyCustomEventName(string id, message@ msg) {
-    if(msg.get_string('triggerType') == 'cloudMove') {
+    if(msg.get_string('triggerType') == 'propRail') {
       SpawnHelper@ tmpSH = SpawnHelper();
       if(@tmpSH == null) {
         
@@ -342,6 +201,7 @@ class script : callback_base {
       tmpSH.flipy = msg.get_int('flipy') == 1;
       tmpSH.isSprite = msg.get_int('isSprite') == 1;
       tmpSH.spriteName = msg.get_string('spriteName');
+      tmpSH.spriteSet = msg.get_string('spriteSet');
       tmpSH.set = msg.get_int('set');
       tmpSH.group = msg.get_int('group');
       tmpSH.index = msg.get_int('index');
@@ -415,46 +275,49 @@ class script : callback_base {
 
 
 class RailTrigger : trigger_base, callback_base {
+  [tooltip:"Opens prop selector. Be sure IsCustomSprite is off when using\nprops.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]
+  [text] bool selectProp;
+  [text]bool showLines;
+  [text|tooltip:"Enable this if you are using a custom sprite. Be sure to\nspecify a SpriteName as well.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]bool isCustomSprite;
+  [option,0:None, 1:spr1.png,2:spr2.png,3:spr3.png,4:spr4.png|tooltip:"Set this to your sprite name if you have IsCustomSprite on.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int spriteName;
+  [text|tooltip:"Background layers (1-5) are buggy. Use at your own risk.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int layer;
+  [text]int sublayer;
+  [text|tooltip:"Increase value to make some movements slower. Will make movement\nmore choppy though.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int frameSkip;
+  [position,mode:world,layer:18,y:Y1] float X1;
+  [position,mode:world,layer:18,y:Y2] float X2;
+  [option,0:Right,1:Left|tooltip:"Which side prop / sprite should start on. In cases of a verticle\nline, arrow does not represent direction of movement (bug).",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int start;
+  [text|tooltip:"Speed, measured in units/frame, object moves along line.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int speed;
+  [text|tooltip:"When set to true, object will flip over the x-axis upon reaching\nthe end of a rail.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]bool flipx;
+  [text|tooltip:"When set to true, object will flip over the y-axis upon reaching\nthe end of a rail.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]bool flipy;
+  [text|tooltip:"When set to true, object hit the end of the rail\nnumLaps# of times then stop.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]bool runNTimes;
+  [text|tooltip:"See RunNTimes.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int numLaps;
+  [text|tooltip:"Set this alongside WobbleSpeed to have object wobble/bounce.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int wobbleAmplitude;
+  [text|tooltip:"See wobbleAmplitude",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int wobbleSpeed;
+  [text] float scalePropX;
+  [text] float scalePropY;
+  [angle] float startingRotation;
+  [text|tooltip:"Angle (in degrees) that an object will rotate clockwise before\nrotating back counter-clockwise.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] float rotationClockwise;
+  [text|tooltip:"Angle (in degrees) that an object will rotate counter-clockwise\nbefore rotating back clockwise.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] float rotationCounterClockwise;
+  [text|tooltip:"Speed, measured in degrees/frame, that an object will rotate.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] float rotationSpeed;
+  [text|tooltip:"Time, measured in frames, that an object will NOT rotate\nupon reaching its max clockwise or counter-clockwise rotation.\nBasically a delay.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int rotationPause;
+  [text|tooltip:"Set object to only rotate clockwise.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] bool rotateClockwiseOnly;
+  [text|tooltip:"Set object to only rotate counter-clockwise.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] bool rotateCounterClockwiseOnly;
+
+  [hidden] float Y1, Y2;
+  [hidden] float Y1Backup;
+  [hidden] bool sendMessage;
+  [hidden] float maxX, minX, maxY, minY;
+  [hidden] float scale;
+  [hidden] float tMaxX, tMaxY, tMinX, tMinY;
+  [hidden] float tX1, tY1, tX2, tY2;
+  [hidden] float realX1, realY1, realX2, realY2;
   [hidden]string name;
   [hidden]int prop_set;
   [hidden]int prop_group;
   [hidden]int prop_index;
   [hidden]int prop_palette;
   [hidden]bool drawSpriteEditor;
-  [text] bool selectProp;
-  [text]int layer;
-  [text]int sublayer;
-  [text]int speed;
-  [text]int frameSkip;
-  [text]int wobbleAmplitude;
-  [text]int wobbleSpeed;
-  [hidden] float Y1, Y2;
-  [position,mode:world,layer:18,y:Y1] float X1;
-  [position,mode:world,layer:18,y:Y2] float X2;
-  [option,0:None, 1:Sprite1,2:Sprite2,3:Sprite3,4:Sprite4]int spriteName;
-  [text]bool showLines;
-  [text]bool flipx;
-  [text]bool flipy;
-  [text]bool runNTimes;
-  [text]bool isSprite;
-  [text]int numLaps;
-  [option,0:Right,1:Left] int start;
-  [hidden] float Y1Backup;
-  [hidden] bool sendMessage;
-  [hidden] float maxX, minX, maxY, minY;
-  [text] float scalePropX;
-  [text] float scalePropY;
-  [hidden] float scale;
-  [angle] float startingRotation;
-  [hidden] float tMaxX, tMaxY, tMinX, tMinY;
-  [hidden] float tX1, tY1, tX2, tY2;
-  [hidden] float realX1, realY1, realX2, realY2;
-  [text] float rotationClockwise;
-  [text] float rotationCounterClockwise;
-  [text] float rotationSpeed;
-  [text] int rotationPause;
-  [text] bool rotateClockwiseOnly;
-  [text] bool rotateCounterClockwiseOnly;
+
   [hidden] float previewRotation;
   [hidden] int rotationDir, previewRotationDir;
   [hidden] string sprSet, sprName;
@@ -487,7 +350,7 @@ class RailTrigger : trigger_base, callback_base {
     numLaps = 0;
     frameCount = 0;
     drawSpriteEditor = false;
-    isSprite = false;
+    isCustomSprite = false;
     rotationSpeed = 0;
     rotationClockwise = 0;
     rotationCounterClockwise = 0;
@@ -508,7 +371,7 @@ class RailTrigger : trigger_base, callback_base {
     getScale();
     scaleXY();
     //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
-    if(!isSprite) {
+    if(!isCustomSprite) {
       sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
       spr1.set(sprSet, sprName);
       spr2.set(sprSet, sprName);
@@ -576,7 +439,7 @@ class RailTrigger : trigger_base, callback_base {
     }
   }
   void drawProps() {
-    if(!isSprite) {
+    if(!isCustomSprite) {
       //Draw the prop preview with wobble
       spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), previewRotation, scalePropX, scalePropY, WHITE);
       spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), previewRotation, scalePropX, scalePropY, WHITE);
@@ -584,16 +447,15 @@ class RailTrigger : trigger_base, callback_base {
   }
 
   void editor_step() {
-    
     ui.step();
     getMaxMinXY();
     getScale();
     scaleXY();
 
-    if(isSprite) {
+    if(isCustomSprite) {
       //Send message to script() in order to draw sprite preview
       message@ msg = create_message();
-      msg.set_int('s_drawSprites', isSprite ? 1:2);
+      msg.set_int('s_drawSprites', isCustomSprite ? 1:2);
       msg.set_int('s_layer', layer);
       msg.set_int('s_sublayer', sublayer);
       msg.set_int('s_palette', prop_palette);
@@ -639,7 +501,7 @@ class RailTrigger : trigger_base, callback_base {
       broadcast_message('OnMyCustomEventName', msg);
     } else {
       message@ msg = create_message();
-      msg.set_int('s_drawSprites', isSprite ? 1:2);
+      msg.set_int('s_drawSprites', isCustomSprite ? 1:2);
       broadcast_message('OnMyCustomEventName', msg);
       sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
       spr1.set(sprSet, sprName);
@@ -698,7 +560,7 @@ class RailTrigger : trigger_base, callback_base {
     if(sendMessage) {
       message@ msg = create_message();
       msg.set_string('triggerID', name);
-      msg.set_string('triggerType', 'cloudMove');
+      msg.set_string('triggerType', 'propRail');
       msg.set_int('speed', speed);
       msg.set_int('layer', layer);
       msg.set_int('sublayer', sublayer);
@@ -708,20 +570,28 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('palette', prop_palette);
       msg.set_int('start', start);
       msg.set_int('runNTimes', runNTimes ? 1:0);
-      msg.set_int('isSprite', isSprite ? 1:0);
-      msg.set_string('spriteName', 'spr'+spriteName);
+
+      if(isCustomSprite) {
+        msg.set_string('spriteName', 'spr'+spriteName);
+        msg.set_string('spriteSet', 'script');
+      } else {
+        msg.set_string('spriteName', sprName);
+        msg.set_string('spriteSet', sprSet);
+      }
+
+      msg.set_int('isSprite', 1);
       msg.set_int('numLaps', numLaps);
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
       msg.set_int('frameSkip', frameSkip == 0 ? 1 : frameSkip);
       msg.set_int('wobbleAmplitude', wobbleAmplitude);
       msg.set_int('wobbleSpeed', wobbleSpeed);
-      if(isSprite) {
+      //if(layer <= 5) {
         realX1 = tX1;
         realX2 = tX2;
         realY1 = tY1;
         realY2 = tY2;
-      }
+      //}
       if(layer > 5 ) {
         msg.set_float('maxX', realX1 > realX2? realX1:realX2);
         msg.set_float('minX', realX1 > realX2? realX2:realX1);
@@ -886,6 +756,7 @@ class SpawnHelper {
   [text]bool rotateCounterClockwiseOnly;
   [hidden]array<prop@> props;
   [hidden]string spriteName;
+  [hidden]string spriteSet;
   [hidden]array<int32> propids;
   [hidden]float startingRotation;
   [hidden]float rotationSpeed;
@@ -912,6 +783,7 @@ class SpawnHelper {
     rotateClockwiseOnly = false;
     rotateCounterClockwiseOnly = false;
     spriteName = "spr1";
+    spriteSet = "script";
     maxX = 0;
     minX = 0;
     maxY = 0;
