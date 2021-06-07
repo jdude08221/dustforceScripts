@@ -20,7 +20,6 @@ const uint GREEN_TRANSPARENT = 0x4A00FF00;
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
 
 //TODO: use prop_group.as and wiggle.as to allow for custom props to be used
-//TODO: add rotation on line
 
 class script : callback_base {
   [text]array<SpawnHelper@> spawnArr;
@@ -32,9 +31,8 @@ class script : callback_base {
   bool exists = false;
   array<int> triggerIDs;
   bool s_drawSprites;
-  [hidden]int s_layer, s_sublayer, s_palette;
-  [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX,
-  s_scalePropY;
+  [hidden]int s_layer, s_sublayer, s_palette, s_rotationSpeed;
+  [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX, s_scalePropY;
   [hidden]string s_spriteName;
 
   script() {
@@ -61,7 +59,7 @@ class script : callback_base {
       SpawnHelper@ sh = spawnArr[j];
       if(sh.isSprite) {
         spr.draw_world(sh.layer, sh.sublayer, sh.spriteName, 0, 1, sh.sprx, sh.spry, 
-                          sh.startingRotation, sh.scaleX, sh.scaleY, 0xFFFFFFFF);
+                          sh.sprRotation, sh.scaleX, sh.scaleY, 0xFFFFFFFF);
       }
     }
   }
@@ -88,20 +86,26 @@ class script : callback_base {
             flipDirectionSpr(sh, sh.sprx >= sh.maxX ? -1 : 1);
           } else if(lineDefined) {
               sh.sprx = sh.sprx + (sh.speed * sh.direction);
-              sh.spry = propPath.getY(sh.sprx)+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+              sh.spry = propPath.getY(sh.sprx) + sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
           } else if(!lineDefined && (sh.spry >= sh.maxY || sh.spry <= sh.minY)){
             flipDirectionSpr(sh, sh.spry >= sh.maxY ? -1 : 1);
           } else {
             sh.spry = (sh.spry+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
             sh.sprx = sh.sprx;
           }
+          rotateSprite(sh);
         } else if(frameCount % sh.frameSkip == 0) {
-          sh.spry = sh.spry+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+
+          //Record the final y value for a smooth wobble
+          if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
+            sh.finalY = sh.spry;
+          }
+          sh.spry = sh.finalY+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
+          rotateSprite(sh);
         }
       }
 
       for(uint i = 0; i < sh.props.length(); i++) {
-        //Not a prop, using a sprite
         prop @pr = sh.props[i];
         if(@pr == null) { //If somehow we lost the handle, remove the prop from our array
           sh.props.removeAt(i);
@@ -115,11 +119,17 @@ class script : callback_base {
             } else if(!lineDefined && (sh.props[i].y() >= sh.maxY || sh.props[i].y() <= sh.minY)){
               flipDirection(sh, pr, sh.props[i].y() >= sh.maxY ? -1 : 1);
             } else {
-              pr.y(pr.y()+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
+              pr.y(pr.y() + (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
               pr.x(pr.x());
             }
+            rotateProp(sh, pr);
         } else if(frameCount % sh.frameSkip == 0) {
-          pr.y(pr.y()+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0));
+          //Record the final y value for a smooth wobble
+          if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
+            sh.finalY = pr.y();
+          }
+          pr.y(sh.finalY + sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0));
+          rotateProp(sh, pr);
         }
       }
     }
@@ -128,6 +138,52 @@ class script : callback_base {
   
   bool continueLaps(SpawnHelper@ sh) {
     return !sh.runNTimes || (sh.runNTimes && sh.numLaps >= 0);
+  }
+
+  void rotateProp(SpawnHelper@ sh, prop@ pr) {
+
+    //If we are at the end of a rotation cycle and the pause timer still has time left,
+    if(((pr.rotation() >= sh.startingRotation + sh.rotationClockwise) || 
+    (pr.rotation() <= sh.startingRotation - sh.rotationCounterClockwise)) &&
+    (sh.pauseTimer > 0)) {
+      //Decrement the timer and return in order to NOT rotate the prop for pauseTimer# frames
+      sh.pauseTimer--;
+      return;
+    } else {
+      sh.pauseTimer = sh.rotationPause;
+    }
+
+    pr.rotation(pr.rotation() + sh.rotationSpeed * sh.rotationDir);
+    if(pr.rotation() >= sh.startingRotation + sh.rotationClockwise) {
+      pr.rotation( sh.startingRotation + sh.rotationClockwise);
+      sh.rotationDir *= -1;
+    } else if(pr.rotation() <= sh.startingRotation - sh.rotationCounterClockwise) {
+      pr.rotation(sh.startingRotation - sh.rotationCounterClockwise);
+      sh.rotationDir *= -1;
+    }
+  }
+
+  void rotateSprite(SpawnHelper@ sh) {
+    //If we are at the end of a rotation cycle and the pause timer still has time left,
+    if(((sh.sprRotation >= sh.startingRotation + sh.rotationClockwise) || 
+    (sh.sprRotation <= sh.startingRotation - sh.rotationCounterClockwise)) &&
+    (sh.pauseTimer > 0)) {
+      //Decrement the timer and return in order to NOT rotate the prop for pauseTimer# frames
+      sh.pauseTimer--;
+      return;
+    } else {
+      sh.pauseTimer = sh.rotationPause;
+    }
+
+    sh.sprRotation = sh.sprRotation + (sh.rotationSpeed * sh.rotationDir);
+    //If the current rotation exceeds the desired rotation, swap directions;
+    if(sh.sprRotation >= sh.startingRotation + sh.rotationClockwise) {
+      sh.sprRotation = sh.startingRotation + sh.rotationClockwise;
+      sh.rotationDir *= -1;
+    } else if (sh.sprRotation <= (sh.startingRotation - sh.rotationCounterClockwise)) {
+      sh.sprRotation = sh.startingRotation - sh.rotationCounterClockwise;
+      sh.rotationDir *= -1;
+    }
   }
 
   void flipDirectionSpr(SpawnHelper@ sh, int dir) {
@@ -281,7 +337,14 @@ class script : callback_base {
       tmpSH.scaleX = msg.get_float('scaleX');
       tmpSH.scaleY = msg.get_float('scaleY');
       tmpSH.startingRotation = msg.get_float('startingRotation');
+      tmpSH.rotationSpeed = msg.get_int('rotationSpeed');
+      tmpSH.rotationClockwise = msg.get_float('rotationClockwise');
+      tmpSH.rotationCounterClockwise = msg.get_float('rotationCounterClockwise');
       tmpSH.triggerID = msg.get_string('triggerID');
+      tmpSH.rotationDir = 1;
+      tmpSH.sprRotation = tmpSH.startingRotation;
+      tmpSH.rotationPause = msg.get_int('rotationPause');
+      tmpSH.pauseTimer = 0;
 
       if(tmpSH.start == 1) {// If left to right
         if(tmpSH.X1 != tmpSH.X2) {// Not vertical line
@@ -358,8 +421,15 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
   [hidden] float realX1, realY1, realX2, realY2;
+  [text] float rotationClockwise;
+  [text] float rotationCounterClockwise;
+  [text] int rotationSpeed;
+  [text] int rotationPause;
+  [hidden] float previewRotation;
+  [hidden] int rotationDir, previewRotationDir;
   [hidden] string sprSet, sprName;
   [hidden] int frameCount;
+  [hidden] int pauseTimer;
   scene@ g;
 
   private UI@ ui = UI();
@@ -388,6 +458,14 @@ class RailTrigger : trigger_base, callback_base {
     frameCount = 0;
     drawSpriteEditor = false;
     isSprite = false;
+    rotationSpeed = 0;
+    rotationClockwise = 0;
+    rotationCounterClockwise = 0;
+    rotationDir = 1;
+    previewRotation = 0;
+    previewRotationDir = 1;
+    rotationPause = 0;
+    pauseTimer = rotationPause;
   }
 
   void init(script@ s, scripttrigger@ self ) {
@@ -468,8 +546,8 @@ class RailTrigger : trigger_base, callback_base {
   void drawProps() {
     if(!isSprite) {
       //Draw the prop preview with wobble
-      spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
-      spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2 + + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), startingRotation, scalePropX, scalePropY, WHITE);
+      spr1.draw(layer, sublayer, 0, prop_palette, tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), previewRotation, scalePropX, scalePropY, WHITE);
+      spr2.draw(layer, sublayer, 0, prop_palette, tX2, tY2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), previewRotation, scalePropX, scalePropY, WHITE);
     }
   }
 
@@ -481,23 +559,45 @@ class RailTrigger : trigger_base, callback_base {
     scaleXY();
 
     if(isSprite) {
+      //Send message to script() in order to draw sprite preview
       message@ msg = create_message();
       msg.set_int('s_drawSprites', isSprite ? 1:2);
       msg.set_int('s_layer', layer);
       msg.set_int('s_sublayer', sublayer);
       msg.set_int('s_palette', prop_palette);
+      msg.set_int('s_rotationSpeed', rotationSpeed);
       msg.set_float('s_x1', tX1);
       msg.set_float('s_y1', tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
       msg.set_float('s_x2', tX2 );
       msg.set_float('s_y2', tY2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
-      msg.set_float('s_startingRotation', startingRotation);
+      
+      //msg.set_float('s_startingRotation', startingRotation);
       msg.set_float('s_scalePropX', scalePropX);
       msg.set_float('s_scalePropY', scalePropY);
       msg.set_string('s_spriteName', 'spr'+spriteName);
+      puts('spr'+spriteName);
+     frameSkip = frameSkip == 0 ? 1 : frameSkip;
+      if(frameCount % frameSkip == 0) {
+        if(((previewRotation >= startingRotation + rotationClockwise) || 
+          (previewRotation <= startingRotation - rotationCounterClockwise)) &&
+          (pauseTimer > 0)) {
+             previewRotation = previewRotation;
+             pauseTimer--;
+        } else {
+          pauseTimer = rotationPause;
+          previewRotation = previewRotation + rotationSpeed * previewRotationDir;
+          if(previewRotation >= startingRotation + rotationClockwise) {
+            previewRotation = startingRotation + rotationClockwise;
+            previewRotationDir *= -1;
+          } else if(previewRotation <= startingRotation - rotationCounterClockwise) {
+            previewRotation = startingRotation - rotationCounterClockwise;
+            previewRotationDir *= -1;
+          }
+        }
+        
+      }
+      msg.set_float('s_startingRotation', previewRotation);
       broadcast_message('OnMyCustomEventName', msg);
-      // spr1.draw(layer, sublayer, 0, prop_palette, 
-      // tX1, tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)), 
-      // startingRotation, scalePropX, scalePropY, WHITE);
     } else {
       message@ msg = create_message();
       msg.set_int('s_drawSprites', isSprite ? 1:2);
@@ -507,6 +607,22 @@ class RailTrigger : trigger_base, callback_base {
       spr2.set(sprSet, sprName);
       spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
       spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
+       if(((previewRotation >= startingRotation + rotationClockwise) || 
+          (previewRotation <= startingRotation - rotationCounterClockwise)) &&
+          (pauseTimer > 0)) {
+             previewRotation = previewRotation;
+             pauseTimer--;
+        } else {
+          pauseTimer = rotationPause;
+          previewRotation = previewRotation + rotationSpeed * previewRotationDir;
+          if(previewRotation >= startingRotation + rotationClockwise) {
+            previewRotation = startingRotation + rotationClockwise;
+            previewRotationDir *= -1;
+          } else if(previewRotation <= startingRotation - rotationCounterClockwise) {
+            previewRotation = startingRotation - rotationCounterClockwise;
+            previewRotationDir *= -1;
+          }
+        }
     }
 
     self.set_xy((X1 + X2)/2, (Y1 + Y2)/2);
@@ -583,6 +699,10 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
       msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
       msg.set_float('startingRotation', startingRotation);
+      msg.set_int('rotationSpeed', rotationSpeed);
+      msg.set_int('rotationPause', rotationPause);
+      msg.set_float('rotationClockwise', rotationClockwise);
+      msg.set_float('rotationCounterClockwise', rotationCounterClockwise);
       broadcast_message('OnMyCustomEventName', msg);
     }
   }
@@ -708,7 +828,7 @@ class SpawnHelper {
   [text]int speed, layer, sublayer, set, group, index, palette, direction, start;
   [text]bool exists;
   [hidden]bool isSprite;
-  [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2;
+  [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2, finalY;
   [text]float scaleX, scaleY;
   [text]string triggerID;
   [text]int frameSkip;
@@ -718,11 +838,17 @@ class SpawnHelper {
   [hidden]string spriteName;
   [hidden]array<int32> propids;
   [hidden]float startingRotation;
-  [hidden]float sprx,spry;
+  [hidden]int rotationSpeed;
+  [hidden]float rotationClockwise;
+  [hidden]float rotationCounterClockwise;
+  [hidden]float sprx, spry, sprRotation;
   [hidden]bool runNTimes;
   [hidden]bool flipx;
   [hidden]bool flipy;
   [hidden]int numLaps;
+  [hidden]int rotationDir;
+  [hidden]int rotationPause;
+  [hidden]int pauseTimer;
   SpawnHelper() {
     numLaps = 0;
     speed = 0;
@@ -752,10 +878,18 @@ class SpawnHelper {
     scaleY = 0;
     sprx = 0;
     spry = 0;
+    sprRotation = 0;
     startingRotation = 0;
+    rotationSpeed = 0;
+    rotationClockwise = 0;
+    rotationCounterClockwise = 0;
     frameSkip = 1;
     wobbleAmplitude = 0;
     wobbleSpeed = 0;
+    rotationDir = 1;
+    finalY = 0;
+    rotationPause = 0;
+    pauseTimer = 0;
   }
 
   void setStart(int dir) {
