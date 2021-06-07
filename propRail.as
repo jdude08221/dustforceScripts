@@ -31,9 +31,11 @@ class script : callback_base {
   bool exists = false;
   array<int> triggerIDs;
   bool s_drawSprites;
-  [hidden]int s_layer, s_sublayer, s_palette, s_rotationSpeed;
-  [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX, s_scalePropY;
+  [hidden]int s_layer, s_sublayer, s_palette;
+  [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX, s_scalePropY, s_rotationSpeed;
+  [hidden]bool s_rotateClockwiseOnly, s_rotateCounterClockwiseOnly;
   [hidden]string s_spriteName;
+  [hidden]Sprite spr1, spr2;
 
   script() {
     frameCount = 0;
@@ -58,8 +60,12 @@ class script : callback_base {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
       if(sh.isSprite) {
-        spr.draw_world(sh.layer, sh.sublayer, sh.spriteName, 0, 1, sh.sprx, sh.spry, 
-                          sh.sprRotation, sh.scaleX, sh.scaleY, 0xFFFFFFFF);
+        spr1.set("script", sh.spriteName);
+        spr1.draw(sh.layer, sh.sublayer, 0, 1, sh.sprx, 
+              sh.spry, sh.sprRotation, sh.scaleX, sh.scaleY, WHITE);
+
+        //spr.draw_world(sh.layer, sh.sublayer, sh.spriteName, 0, 1, sh.sprx, sh.spry, 
+                        //  sh.sprRotation, sh.scaleX, sh.scaleY, 0xFFFFFFFF);
       }
     }
   }
@@ -141,6 +147,13 @@ class script : callback_base {
   }
 
   void rotateProp(SpawnHelper@ sh, prop@ pr) {
+    if(sh.rotateClockwiseOnly) {
+       pr.rotation(pr.rotation() + sh.rotationSpeed);
+      return;
+    } else if(sh.rotateCounterClockwiseOnly) {
+      pr.rotation(pr.rotation() - sh.rotationSpeed);
+      return;
+    }
 
     //If we are at the end of a rotation cycle and the pause timer still has time left,
     if(((pr.rotation() >= sh.startingRotation + sh.rotationClockwise) || 
@@ -164,6 +177,14 @@ class script : callback_base {
   }
 
   void rotateSprite(SpawnHelper@ sh) {
+    if(sh.rotateClockwiseOnly) {
+      sh.sprRotation = sh.sprRotation + sh.rotationSpeed;
+      return;
+    } else if(sh.rotateCounterClockwiseOnly) {
+      sh.sprRotation = sh.sprRotation - sh.rotationSpeed;
+      return;
+    }
+
     //If we are at the end of a rotation cycle and the pause timer still has time left,
     if(((sh.sprRotation >= sh.startingRotation + sh.rotationClockwise) || 
     (sh.sprRotation <= sh.startingRotation - sh.rotationCounterClockwise)) &&
@@ -260,10 +281,15 @@ class script : callback_base {
   void editor_draw(float sub_frame) {
     //draw sprite preview
     if(s_drawSprites){
-      spr.draw_world(s_layer, s_sublayer, s_spriteName, 0, 1, s_x1, s_y1,
-                          s_startingRotation, s_scalePropX, s_scalePropY, 0xFFFFFFFF);
-      spr.draw_world(s_layer, s_sublayer, s_spriteName, 0, 1, s_x2, s_y2,
-                          s_startingRotation, s_scalePropX, s_scalePropY, 0xFFFFFFFF);
+
+      spr1.set("script", s_spriteName);
+      spr2.set("script", s_spriteName);
+
+      spr1.draw(s_layer, s_sublayer, 0, 1, s_x1, 
+                s_y1, s_startingRotation, s_scalePropX, s_scalePropY, WHITE);
+      spr1.draw(s_layer, s_sublayer, 0, 1, s_x2, 
+                s_y2, s_startingRotation, s_scalePropX, s_scalePropY, WHITE);
+
     }
   }
 
@@ -337,7 +363,7 @@ class script : callback_base {
       tmpSH.scaleX = msg.get_float('scaleX');
       tmpSH.scaleY = msg.get_float('scaleY');
       tmpSH.startingRotation = msg.get_float('startingRotation');
-      tmpSH.rotationSpeed = msg.get_int('rotationSpeed');
+      tmpSH.rotationSpeed = msg.get_float('rotationSpeed');
       tmpSH.rotationClockwise = msg.get_float('rotationClockwise');
       tmpSH.rotationCounterClockwise = msg.get_float('rotationCounterClockwise');
       tmpSH.triggerID = msg.get_string('triggerID');
@@ -345,6 +371,8 @@ class script : callback_base {
       tmpSH.sprRotation = tmpSH.startingRotation;
       tmpSH.rotationPause = msg.get_int('rotationPause');
       tmpSH.pauseTimer = 0;
+      tmpSH.rotateClockwiseOnly = msg.get_int('rotateClockwiseOnly') == 1;
+      tmpSH.rotateCounterClockwiseOnly = msg.get_int('rotateCounterClockwiseOnly') == 1;
 
       if(tmpSH.start == 1) {// If left to right
         if(tmpSH.X1 != tmpSH.X2) {// Not vertical line
@@ -403,7 +431,7 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] float Y1, Y2;
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
-  [option,1:Sprite1,2:Sprite2,3:Sprite3,4:Sprite4]int spriteName;
+  [option,0:None, 1:Sprite1,2:Sprite2,3:Sprite3,4:Sprite4]int spriteName;
   [text]bool showLines;
   [text]bool flipx;
   [text]bool flipy;
@@ -423,8 +451,10 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] float realX1, realY1, realX2, realY2;
   [text] float rotationClockwise;
   [text] float rotationCounterClockwise;
-  [text] int rotationSpeed;
+  [text] float rotationSpeed;
   [text] int rotationPause;
+  [text] bool rotateClockwiseOnly;
+  [text] bool rotateCounterClockwiseOnly;
   [hidden] float previewRotation;
   [hidden] int rotationDir, previewRotationDir;
   [hidden] string sprSet, sprName;
@@ -461,6 +491,8 @@ class RailTrigger : trigger_base, callback_base {
     rotationSpeed = 0;
     rotationClockwise = 0;
     rotationCounterClockwise = 0;
+    rotateClockwiseOnly = false;
+    rotateCounterClockwiseOnly = false;
     rotationDir = 1;
     previewRotation = 0;
     previewRotationDir = 1;
@@ -565,7 +597,10 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('s_layer', layer);
       msg.set_int('s_sublayer', sublayer);
       msg.set_int('s_palette', prop_palette);
-      msg.set_int('s_rotationSpeed', rotationSpeed);
+
+      msg.set_int('s_rotateClockwiseOnly', rotateClockwiseOnly? 1:0);
+      msg.set_int('s_rotateCounterClockwiseOnly', rotateCounterClockwiseOnly ? 1:0);
+      msg.set_float('s_rotationSpeed', rotationSpeed);
       msg.set_float('s_x1', tX1);
       msg.set_float('s_y1', tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
       msg.set_float('s_x2', tX2 );
@@ -575,8 +610,48 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_float('s_scalePropX', scalePropX);
       msg.set_float('s_scalePropY', scalePropY);
       msg.set_string('s_spriteName', 'spr'+spriteName);
-     frameSkip = frameSkip == 0 ? 1 : frameSkip;
-      if(frameCount % frameSkip == 0) {
+      if(rotateClockwiseOnly) {
+        previewRotation = previewRotation + rotationSpeed;
+      } else if(rotateCounterClockwiseOnly) {
+        previewRotation = previewRotation - rotationSpeed;
+      } else {
+        frameSkip = frameSkip == 0 ? 1 : frameSkip;
+          if(frameCount % frameSkip == 0) {
+            if(((previewRotation >= startingRotation + rotationClockwise) || 
+              (previewRotation <= startingRotation - rotationCounterClockwise)) &&
+              (pauseTimer > 0)) {
+                previewRotation = previewRotation;
+                pauseTimer--;
+            } else {
+              pauseTimer = rotationPause;
+              previewRotation = previewRotation + rotationSpeed * previewRotationDir;
+              if(previewRotation >= startingRotation + rotationClockwise) {
+                previewRotation = startingRotation + rotationClockwise;
+                previewRotationDir *= -1;
+              } else if(previewRotation <= startingRotation - rotationCounterClockwise) {
+                previewRotation = startingRotation - rotationCounterClockwise;
+                previewRotationDir *= -1;
+              }
+            }
+          }
+      }
+      msg.set_float('s_startingRotation', previewRotation);
+      broadcast_message('OnMyCustomEventName', msg);
+    } else {
+      message@ msg = create_message();
+      msg.set_int('s_drawSprites', isSprite ? 1:2);
+      broadcast_message('OnMyCustomEventName', msg);
+      sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
+      spr1.set(sprSet, sprName);
+      spr2.set(sprSet, sprName);
+      spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
+      spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
+
+      if(rotateClockwiseOnly) {
+        previewRotation = previewRotation + rotationSpeed;
+      } else if(rotateCounterClockwiseOnly) {
+        previewRotation = previewRotation - rotationSpeed;
+      } else {
         if(((previewRotation >= startingRotation + rotationClockwise) || 
           (previewRotation <= startingRotation - rotationCounterClockwise)) &&
           (pauseTimer > 0)) {
@@ -593,39 +668,11 @@ class RailTrigger : trigger_base, callback_base {
             previewRotationDir *= -1;
           }
         }
-        
       }
-      msg.set_float('s_startingRotation', previewRotation);
-      broadcast_message('OnMyCustomEventName', msg);
-    } else {
-      message@ msg = create_message();
-      msg.set_int('s_drawSprites', isSprite ? 1:2);
-      broadcast_message('OnMyCustomEventName', msg);
-      sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
-      spr1.set(sprSet, sprName);
-      spr2.set(sprSet, sprName);
-      spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
-      spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
-       if(((previewRotation >= startingRotation + rotationClockwise) || 
-          (previewRotation <= startingRotation - rotationCounterClockwise)) &&
-          (pauseTimer > 0)) {
-             previewRotation = previewRotation;
-             pauseTimer--;
-        } else {
-          pauseTimer = rotationPause;
-          previewRotation = previewRotation + rotationSpeed * previewRotationDir;
-          if(previewRotation >= startingRotation + rotationClockwise) {
-            previewRotation = startingRotation + rotationClockwise;
-            previewRotationDir *= -1;
-          } else if(previewRotation <= startingRotation - rotationCounterClockwise) {
-            previewRotation = startingRotation - rotationCounterClockwise;
-            previewRotationDir *= -1;
-          }
-        }
     }
 
     self.set_xy((X1 + X2)/2, (Y1 + Y2)/2);
-
+    
     if(!prop_selector.visible && selectProp)
     {
       prop_selector.select_group(null);
@@ -698,10 +745,12 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
       msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
       msg.set_float('startingRotation', startingRotation);
-      msg.set_int('rotationSpeed', rotationSpeed);
+      msg.set_float('rotationSpeed', rotationSpeed);
       msg.set_int('rotationPause', rotationPause);
       msg.set_float('rotationClockwise', rotationClockwise);
       msg.set_float('rotationCounterClockwise', rotationCounterClockwise);
+      msg.set_int('rotateClockwiseOnly', rotateClockwiseOnly ? 1:0);
+      msg.set_int('rotateCounterClockwiseOnly', rotateCounterClockwiseOnly ? 1:0);
       broadcast_message('OnMyCustomEventName', msg);
     }
   }
@@ -833,11 +882,13 @@ class SpawnHelper {
   [text]int frameSkip;
   [text]int wobbleAmplitude;
   [text]int wobbleSpeed;
+  [text]bool rotateClockwiseOnly;
+  [text]bool rotateCounterClockwiseOnly;
   [hidden]array<prop@> props;
   [hidden]string spriteName;
   [hidden]array<int32> propids;
   [hidden]float startingRotation;
-  [hidden]int rotationSpeed;
+  [hidden]float rotationSpeed;
   [hidden]float rotationClockwise;
   [hidden]float rotationCounterClockwise;
   [hidden]float sprx, spry, sprRotation;
@@ -858,6 +909,8 @@ class SpawnHelper {
     flipx = false;
     flipy = false;
     isSprite = false;
+    rotateClockwiseOnly = false;
+    rotateCounterClockwiseOnly = false;
     spriteName = "spr1";
     maxX = 0;
     minX = 0;
