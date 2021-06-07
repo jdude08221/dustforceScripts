@@ -486,10 +486,10 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('s_layer', layer);
       msg.set_int('s_sublayer', sublayer);
       msg.set_int('s_palette', prop_palette);
-      msg.set_float('s_x1', X1);
-      msg.set_float('s_y1', Y1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
-      msg.set_float('s_x2', X2 );
-      msg.set_float('s_y2', Y2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
+      msg.set_float('s_x1', tX1);
+      msg.set_float('s_y1', tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
+      msg.set_float('s_x2', tX2 );
+      msg.set_float('s_y2', tY2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
       msg.set_float('s_startingRotation', startingRotation);
       msg.set_float('s_scalePropX', scalePropX);
       msg.set_float('s_scalePropY', scalePropY);
@@ -509,7 +509,7 @@ class RailTrigger : trigger_base, callback_base {
       spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
     }
 
-    self.set_xy((tX1 + tX2)/2, (tY1 + tY2)/2);
+    self.set_xy((X1 + X2)/2, (Y1 + Y2)/2);
 
     if(!prop_selector.visible && selectProp)
     {
