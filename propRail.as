@@ -20,6 +20,8 @@ const uint GREEN_TRANSPARENT = 0x4A00FF00;
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
 
 //TODO: use prop_group.as and wiggle.as to allow for custom props to be used
+//TODO: update how trigger handle x/y position is set so it isnt obnoxious (moves to 0,0 always)
+//TODO: add wrapping on the rail instead of bouncing
 
 class script : callback_base {
   [text]array<SpawnHelper@> spawnArr;
@@ -73,7 +75,7 @@ class script : callback_base {
 
       bool lineDefined = sh.X1 != sh.X2;
       Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
-      if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // Otherwise if this isnt a skipped frame AND we havent completed our lap count, move the prop
+      if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // If this isnt a skipped frame AND we havent completed our lap count, update sprite position/rotation
         if(lineDefined && (sh.sprx >= sh.maxX || sh.sprx <= sh.minX)) {
           flipDirectionSpr(sh, sh.sprx >= sh.maxX ? -1 : 1);
         } else if(lineDefined) {
@@ -86,8 +88,7 @@ class script : callback_base {
           sh.sprx = sh.sprx;
         }
         rotateSprite(sh);
-      } else if(frameCount % sh.frameSkip == 0) {
-
+      } else if(frameCount % sh.frameSkip == 0) { // If this isnt a skipped frame and the sprite has completed all of its laps, stop moving along the path
         //Record the final y value for a smooth wobble
         if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
           sh.finalY = sh.spry;
@@ -158,8 +159,7 @@ class script : callback_base {
 
   void checkpoint_save() { }
 
-  void checkpoint_load() {
-  }
+  void checkpoint_load() { }
   
   void editor_step() {
     spr.add_sprite_set("script");
@@ -168,25 +168,19 @@ class script : callback_base {
   void editor_draw(float sub_frame) {
     //draw sprite preview
     if(s_drawSprites){
-
       spr1.set("script", s_spriteName);
       spr2.set("script", s_spriteName);
 
       spr1.draw(s_layer, s_sublayer, 0, 1, s_x1, 
                 s_y1, s_startingRotation, s_scalePropX, s_scalePropY, WHITE);
-      spr1.draw(s_layer, s_sublayer, 0, 1, s_x2, 
+      spr2.draw(s_layer, s_sublayer, 0, 1, s_x2, 
                 s_y2, s_startingRotation, s_scalePropX, s_scalePropY, WHITE);
-
     }
   }
 
   void OnMyCustomEventName(string id, message@ msg) {
     if(msg.get_string('triggerType') == 'propRail') {
       SpawnHelper@ tmpSH = SpawnHelper();
-      if(@tmpSH == null) {
-        
-      }
-      
       // Yeah I should have used a dictionary
       for(uint i = 0; i < spawnArr.length(); i++) {
         if(msg.get_string('triggerID') == spawnArr[i].triggerID) {
@@ -253,7 +247,7 @@ class script : callback_base {
       }
 
       spawnArr.insertLast(tmpSH);
-    } else if(msg.get_int('s_drawSprites') == 1) {
+    } else if(msg.get_int('s_drawSprites') == 1) { // Message to draw editor preview of custom sprite
       s_drawSprites = msg.get_int('s_drawSprites') == 1;
       s_layer = msg.get_int('s_layer');
       s_sublayer = msg.get_int('s_sublayer');
@@ -370,7 +364,7 @@ class RailTrigger : trigger_base, callback_base {
     getMaxMinXY();
     getScale();
     scaleXY();
-    //void sprite_from_prop(uint prop_set, uint prop_group, uint prop_index, string &out sprite_set, string &out sprite_name)
+
     if(!isCustomSprite) {
       sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
       spr1.set(sprSet, sprName);
@@ -378,7 +372,6 @@ class RailTrigger : trigger_base, callback_base {
       spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
       spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
     }
-    
     //puts('realX1: '+realX1+"realY1: "+realY1);
   }
 
@@ -452,6 +445,7 @@ class RailTrigger : trigger_base, callback_base {
     getScale();
     scaleXY();
 
+    // If the user has selected to draw a custom sprite, script() needs to handle the drawing
     if(isCustomSprite) {
       //Send message to script() in order to draw sprite preview
       message@ msg = create_message();
@@ -499,7 +493,7 @@ class RailTrigger : trigger_base, callback_base {
       }
       msg.set_float('s_startingRotation', previewRotation);
       broadcast_message('OnMyCustomEventName', msg);
-    } else {
+    } else { // User has selected to use a prop, get the prop's sprite and draw it
       message@ msg = create_message();
       msg.set_int('s_drawSprites', isCustomSprite ? 1:2);
       broadcast_message('OnMyCustomEventName', msg);
