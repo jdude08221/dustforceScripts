@@ -10,7 +10,6 @@ const string EMBED_spr2 = "propRail/spr2.png";
 const string EMBED_spr3 = "propRail/spr3.png"; 
 const string EMBED_spr4 = "propRail/spr4.png";
 
-const int BASE_SPAWN_RATE = 8000;
 const int NUM_SPRITES = 4;
 const float FRAME_DELTA = 16666.6666;
 const uint WHITE = 0xFFFFFFFF; 
@@ -19,6 +18,7 @@ const uint RED = 0xFFFF0000;
 const uint RED_TRANSPARENT = 0x4AFF0000; 
 const uint WHITE_TRANSPARENT = 0x4AFFFFFF; 
 const uint GREEN_TRANSPARENT = 0x4A00FF00; 
+
 //18-i is scaled at (1-0.05*i) for 18-i >5
 //1<=i<=5 has scale 0.05i might be scaled down by another 1/16th
 
@@ -31,7 +31,6 @@ class script : callback_base {
   int frameCount;
   int lastTimestamp;
   sprites@ spr;
-  bool exists = false;
   bool s_drawSprites;
   [hidden]int s_layer, s_sublayer, s_palette;
   [hidden]float s_x1, s_y1, s_x2, s_y2, s_startingRotation, s_scalePropX, s_scalePropY, s_rotationSpeed;
@@ -40,13 +39,12 @@ class script : callback_base {
   [hidden]Sprite spr1, spr2;
 
   script() {
-    frameCount = 0;
     @g = get_scene();
-    srand(timestamp_now());
     @spr = create_sprites();
-    add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
+    srand(timestamp_now());
     lastTimestamp = get_time_us();
-    //override_stream_sizes(100, 8);
+    add_broadcast_receiver('OnMyCustomEventName', this, 'OnMyCustomEventName');
+    frameCount = 0;
   }
 
     void build_sprites(message@ msg) {
@@ -59,6 +57,7 @@ class script : callback_base {
   void on_level_start() {
     spr.add_sprite_set("script");
   }
+
   void draw(float subframe) {
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
@@ -69,62 +68,56 @@ class script : callback_base {
       }
     }
   }
+
   void step(int entities) {
+    // Loop over all helper classes that contain info for sprites/props
     for(uint j = 0; j < spawnArr.length(); j++) {
       SpawnHelper@ sh = spawnArr[j];
-      
-      if(!sh.exists) {
-        sh.exists = true;
+
+      // Skip updating position / rotation if we are supposed to skip this frame
+      if(frameCount % sh.frameSkip != 0) {
+        continue;
       }
 
-      bool lineDefined = sh.X1 != sh.X2;
-      Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
-      if(frameCount % sh.frameSkip == 0 && continueLaps(sh)) { // If this isnt a skipped frame AND we havent completed our lap count, update sprite position/rotation
-        if(lineDefined && (sh.sprx >= sh.maxX || sh.sprx <= sh.minX)) {
-          if(sh.wrap) {
-            wrapSpr(sh, false);
-          } else {
-            flipDirectionSpr(sh, sh.sprx >= sh.maxX ? -1 : 1);
-          }
-        } else if(lineDefined) {
-          float x = sh.sprx + (sh.direction * sh.speed/sqrt(1+propPath.slope()*propPath.slope()));
-          sh.sprx = x;
-          sh.spry = propPath.getY(x);
-          sh.spry = propPath.getY(sh.sprx) + sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
-        } else if(!lineDefined && (sh.spry >= sh.maxY || sh.spry <= sh.minY)) {
-          if(sh.wrap) {
-            wrapSpr(sh, true);
-          } else {
-            flipDirectionSpr(sh, sh.spry >= sh.maxY ? -1 : 1);
-          }
-        } else {
-          sh.spry = (sh.spry+ (sh.speed * sh.direction) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0)));
-          sh.sprx = sh.sprx;
+      // Check if we should continue moving before doing movement
+      if(sh.continueLaps()) {
+        // Before moving, check if we are at the end of a rail 
+        if(sh.atEndOfRail()) {
+          handleRailEnd(sh);
         }
-        rotateSprite(sh);
-      } else if(frameCount % sh.frameSkip == 0) { // If this isnt a skipped frame and the sprite has completed all of its laps, stop moving along the path
-        //Record the final y value for a smooth wobble
-        if(sh.Y1 != 0 && sh.Y2 != 0 && sh.finalY == 0) {
-          sh.finalY = sh.spry;
-        }
-        sh.spry = sh.finalY+ sh.wobbleAmplitude * sin(sh.wobbleSpeed * frameCount / 20.0);
-        rotateSprite(sh);
+
+        // After handling both above cases, go ahead and move
+        sh.moveAlongRail(frameCount);
       }
+
+      //Even if we dont want to move, we will always still wobble or rotate
+      sh.wobble(frameCount);
+      rotateSprite(sh);
     }
+
+    //Count frames using get_time_us()
+    countFrames();
+  }
+  
+  void countFrames() {
     if(get_time_us() - FRAME_DELTA >= lastTimestamp) {
       frameCount++;
     }
   }
-  
-  bool continueLaps(SpawnHelper@ sh) {
-    return !sh.runNTimes || (sh.runNTimes && sh.numLaps >= 0);
+
+  void handleRailEnd(SpawnHelper@ sh) {
+    if(sh.wrap) {
+      sh.wrapSpr();
+    } else {
+      sh.flipDirectionSpr();
+    }
   }
 
   void rotateSprite(SpawnHelper@ sh) {
     if(sh.rotateClockwiseOnly) {
-      sh.sprRotation = sh.sprRotation + sh.rotationSpeed;
+      sh.sprRotation = sh.sprRotation + abs(sh.rotationSpeed);
     } else if(sh.rotateCounterClockwiseOnly) {
-      sh.sprRotation = sh.sprRotation - sh.rotationSpeed;
+      sh.sprRotation = sh.sprRotation - abs(sh.rotationSpeed);
     } else {
       //If we are at the end of a rotation cycle and the pause timer still has time left,
       if(((sh.sprRotation >= sh.startingRotation + sh.rotationClockwise) || 
@@ -148,73 +141,6 @@ class script : callback_base {
           sh.sprRotation = sh.startingRotation - sh.rotationCounterClockwise;
           sh.rotationDir *= -1;
         }
-    }
-  }
-
-  void flipDirectionSpr(SpawnHelper@ sh, int dir) {
-    Line propPath(sh.X1, sh.Y1, sh.X2, sh.Y2);
-    bool lineDefined = sh.X1 != sh.X2;
-    // Change direction of movement and start moving other way
-    sh.direction = dir;
-
-    // Flip the prop if needed for X/Y
-    sh.scaleX = sh.flipx ? -1 * sh.scaleX : sh.scaleX;
-    sh.scaleY = sh.flipy ? -1 * sh.scaleY : sh.scaleY;
-
-    if(lineDefined) {
-      float x = sh.sprx + (sh.direction * sh.speed/sqrt(1+propPath.slope()*propPath.slope()));
-      sh.sprx = x;
-      sh.spry = propPath.getY(sh.sprx) + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0));
-    } else {
-      sh.spry = (sh.speed * sh.direction) + sh.spry + sh.wobbleAmplitude * sin((sh.wobbleSpeed * frameCount / 20.0));
-    }
-    
-
-    // Decrement lap count
-    sh.numLaps--;
-  }
-
-  void wrapSpr(SpawnHelper@ sh, bool isVerticle) {
-    float maxX = sh.X1 > sh.X2 ? sh.X1 : sh.X2;
-    float maxY = sh.Y1 > sh.Y2 ? sh.Y1 : sh.Y2;
-    float minX = sh.X1 > sh.X2 ? sh.X2 : sh.X1;
-    float minY = sh.Y1 > sh.Y2 ? sh.Y2 : sh.Y1;
-
-    sh.sprx = sh.X1 > sh.X2 ? sh.X2 : sh.X1;
-    sh.spry = sh.X1 > sh.X2 ? sh.Y2 : sh.Y1;
-    if((sh.start == 1) && ((isVerticle && sh.spry <= minY) || (sh.sprx >= maxX))) {
-      setSprStart(sh);
-    } else if((isVerticle && sh.spry >= maxY) || (sh.sprx <= minX)) {
-      setSprStart(sh);
-    }
-    
-    if(isVerticle) {
-      sh.spry = sh.spry + (sh.speed) * (sh.start == 1 ? 1 : -1);
-    } else {
-      sh.sprx = sh.sprx + (sh.speed) * (sh.start == 1 ? 1 : -1);
-    }
-
-    sh.numLaps--;
-  }
-
-  //Sets the sprite's x/y value to its starting value
-  void setSprStart(SpawnHelper@ sh) {
-    if(sh.start == 1) {// If left to right
-      if(sh.X1 != sh.X2) {// Not vertical line
-        sh.sprx = sh.X1 > sh.X2 ? sh.X2 : sh.X1;
-        sh.spry = sh.X1 > sh.X2 ? sh.Y2 : sh.Y1;
-      } else { // Vertical line
-        sh.sprx = sh.X1;
-        sh.spry = sh.Y1 > sh.Y2 ? sh.Y2 : sh.Y1;
-      }
-    } else {
-      if(sh.X1 != sh.X2) {// Not vertical line
-        sh.sprx = sh.X1 > sh.X2 ? sh.X1 : sh.X2;
-        sh.spry = sh.X1 > sh.X2 ? sh.Y1 : sh.Y2;
-      } else { // Vertical line
-        sh.sprx = sh.X1;
-        sh.spry = sh.Y1 > sh.Y2 ? sh.Y1 : sh.Y2;
-      }
     }
   }
 
@@ -289,8 +215,9 @@ class script : callback_base {
       tmpSH.rotateClockwiseOnly = msg.get_int('rotateClockwiseOnly') == 1;
       tmpSH.rotateCounterClockwiseOnly = msg.get_int('rotateCounterClockwiseOnly') == 1;
       tmpSH.wrap = msg.get_int('wrap') == 1;
-
-      setSprStart(tmpSH);
+      tmpSH.propPath = Line(tmpSH.X1, tmpSH.Y1, tmpSH.X2, tmpSH.Y2);
+      
+      tmpSH.setSprStart();
 
       spawnArr.insertLast(tmpSH);
     } else if(msg.get_int('s_drawSprites') == 1) { // Message to draw editor preview of custom sprite
@@ -325,6 +252,7 @@ class RailTrigger : trigger_base, callback_base {
   [text|tooltip:"Increase value to make some movements slower. Will make movement\nmore choppy though.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int frameSkip;
   [position,mode:world,layer:18,y:Y1] float X1;
   [position,mode:world,layer:18,y:Y2] float X2;
+  [text|tooltip:"When set to true, prop will no longer run along rail\nand will only rotate/wobble (use X1, Y1 only).",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] bool noRailMovement;
   [option,0:Right,1:Left|tooltip:"Which side prop / sprite should start on. In cases of a verticle\nline, arrow does not represent direction of movement (bug).",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int start;
   [text|tooltip:"Speed, measured in units/frame, object moves along line.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]int speed;
   [text|tooltip:"When set to true, object will flip over the x-axis upon reaching\nthe end of a rail.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF]bool flipx;
@@ -343,7 +271,7 @@ class RailTrigger : trigger_base, callback_base {
   [text|tooltip:"Time, measured in frames, that an object will NOT rotate\nupon reaching its max clockwise or counter-clockwise rotation.\nBasically a delay.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int rotationPause;
   [text|tooltip:"Set object to only rotate clockwise.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] bool rotateClockwiseOnly;
   [text|tooltip:"Set object to only rotate counter-clockwise.",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] bool rotateCounterClockwiseOnly;
-  [color,alpha] uint handlecolor;
+  [color,alpha] uint handleColor;
   [hidden] float Y1, Y2;
   [hidden] float Y1Backup;
   [hidden] bool sendMessage;
@@ -352,12 +280,12 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] float tMaxX, tMaxY, tMinX, tMinY;
   [hidden] float tX1, tY1, tX2, tY2;
   [hidden] float realX1, realY1, realX2, realY2;
-  [hidden]string name;
-  [hidden]int prop_set;
-  [hidden]int prop_group;
-  [hidden]int prop_index;
-  [hidden]int prop_palette;
-  [hidden]bool drawSpriteEditor;
+  [hidden] string name;
+  [hidden] int prop_set;
+  [hidden] int prop_group;
+  [hidden] int prop_index;
+  [hidden] int prop_palette;
+  [hidden] bool drawSpriteEditor;
 
   [hidden] float previewRotation;
   [hidden] int rotationDir, previewRotationDir;
@@ -366,6 +294,8 @@ class RailTrigger : trigger_base, callback_base {
   [hidden] int pauseTimer;
   [hidden] int lastTimestamp;
   [hidden] bool noSprite;
+  [hidden] float curX2, curY2;
+  [hidden] bool savedPoint;
   scene@ g;
 
   private UI@ ui = UI();
@@ -383,6 +313,7 @@ class RailTrigger : trigger_base, callback_base {
     showLines = true;
     X1 = Y1 = X2 = Y2 = 0;
     realX1 = realY1 = realX2 = realY2 = 0;
+    curX2 = curY2 = 0;
     scale = 1;
     sendMessage = true;
     name = "railTrigger";
@@ -405,9 +336,11 @@ class RailTrigger : trigger_base, callback_base {
     rotationPause = 0;
     pauseTimer = rotationPause;
     wrap = false;
-    handlecolor = RED;
+    handleColor = RED;
     lastTimestamp = get_time_us();
     noSprite = false;
+    noRailMovement = false;
+    savedPoint = false;
   }
 
   void init(script@ s, scripttrigger@ self ) {
@@ -430,12 +363,44 @@ class RailTrigger : trigger_base, callback_base {
   }
 
   void editor_draw(float sub_frame) {
-    if(prop_selector.visible)
-    {
+    drawPropSelector();
+    if(showLines) {
+      //Lines need to be adjusted depending on if X1 > X2 and depending on what the user's start value is
+      if(start == 1) {
+        if(X1 < X2 || X1 > X2) {
+          draw_arrow(g, 21, 10, minX, minX == X1 ? Y1 : Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          g.draw_line_world(21, 10, maxX, maxX == X1 ? Y1 : Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+        } else if(Y1 < Y2 || Y1 > Y2) {
+          draw_arrow(g, 21, 10, minY == Y1 ? X1 : X2, minY, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          g.draw_line_world(21, 10, maxY == Y1 ? X1 : X2, maxY, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+        } 
+      } else {
+        if(X1 < X2 || X1 > X2) {
+          draw_arrow(g, 21, 10, maxX, maxX == X1 ? Y1 : Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          g.draw_line_world(21, 10, minX, minX == X1 ? Y1 : Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+        } else if(Y1 < Y2 || Y1 > Y2) {
+          draw_arrow(g, 21, 10, maxY == Y1 ? X1 : X2, maxY, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+          g.draw_line_world(21, 10, minY == Y1 ? X1 : X2, minY, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
+        }
+      }
+      g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, this.self.editor_selected() ? WHITE : WHITE_TRANSPARENT);
+      Y1Backup = Y1;
+
+      //Draw the arrow pointing from the handle to the line with alpha if handle is not selected
+      draw_arrow(g, 21, 11, self.x(), self.y(), (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1,
+               this.self.editor_selected() ? handleColor : handleColor & 0x00FFFFFF | 0x4A000000);
+    }
+    
+    if(!noSprite) {
+      drawProps();
+    }
+  }
+
+  void drawPropSelector() {
+    if(prop_selector.visible) {
       prop_selector.draw();
       
-      if(prop_selector.result == Selected)
-      {
+      if(prop_selector.result == Selected) {
         if(prop_selector.result_prop is null) {
           noSprite = true;
           prop_set = 0;
@@ -451,9 +416,7 @@ class RailTrigger : trigger_base, callback_base {
         }
         
         prop_selector.hide();
-      }
-      else if(prop_selector.result == None)
-      {
+      } else if(prop_selector.result == None) {
         noSprite = true;
         prop_set = 0;
         prop_index = 0;
@@ -462,35 +425,8 @@ class RailTrigger : trigger_base, callback_base {
         prop_selector.hide();
       }
     }
-
-    if(showLines) {
-      //Lines need to be adjusted depending on if X1 > X2, due to that effecting what direction left or right is from the point
-      if(start == 1) {
-        if(X1 < X2) {
-          draw_arrow(g, 21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-          g.draw_line_world(21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-        } else {
-          draw_arrow(g, 21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-          g.draw_line_world(21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-        }
-      } else {
-        if(X1 < X2) {
-          draw_arrow(g, 21, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-          g.draw_line_world(18, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-        } else {
-          draw_arrow(g, 21, 10, X1, Y1, (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-          g.draw_line_world(18, 10, X2, Y2, (X2+X1) / 2, (Y2+Y1)/2, 5, this.self.editor_selected() ? GREEN : GREEN_TRANSPARENT);
-        }
-      }
-      g.draw_line_world(layer, 10, tX1, tY1, tX2, tY2, 5, this.self.editor_selected() ? WHITE : WHITE_TRANSPARENT);
-      Y1Backup = Y1;
-      draw_arrow(g, 21, 11, self.x(), self.y(), (X2+X1) / 2, (Y2+Y1)/2, 2, 30, 1,
-               this.self.editor_selected() ? RED : RED_TRANSPARENT);
-    }
-    if(!noSprite) {
-      drawProps();
-    }
   }
+
   void drawProps() {
     if(!isCustomSprite) {
       //Draw the prop preview with wobble
@@ -500,23 +436,45 @@ class RailTrigger : trigger_base, callback_base {
   }
 
   void editor_step() {
+    // If we are in no rail movement mode, just set X2 and Y2 to be the same as X1, Y1 
+    // and save the old value in case user switches back
+    if(!noRailMovement) {
+      // Load saved point
+      if(savedPoint) {
+        X2 = curX2;
+        Y2 = curY2;
+        savedPoint = false;
+      }
+      curX2 = X2;
+      curY2 = Y2;
+    } else { // Otherwise, constantly save X2 and Y2's values in case user goes into no rail movement mode
+      // Save Point
+      if(!savedPoint) {
+        curX2 = X2;
+        curY2 = Y2;
+        savedPoint = true;
+      }
+      X2 = X1;
+      Y2 = Y1;
+    }
+
     ui.step();
     getMaxMinXY();
     getScale();
     scaleXY();
+    frameSkip = frameSkip == 0 ? 1 : frameSkip;
+    self.editor_colour_active(handleColor);
+    self.editor_colour_inactive(handleColor);
 
-    self.editor_colour_active(handlecolor);
-    self.editor_colour_inactive(handlecolor);
+    message@ msg = create_message();
 
     // If the user has selected to draw a custom sprite, script() needs to handle the drawing
     if(isCustomSprite) {
       //Send message to script() in order to draw sprite preview
-      message@ msg = create_message();
       msg.set_int('s_drawSprites', isCustomSprite ? 1:2);
       msg.set_int('s_layer', layer);
       msg.set_int('s_sublayer', sublayer);
       msg.set_int('s_palette', prop_palette);
-
       msg.set_int('s_rotateClockwiseOnly', rotateClockwiseOnly? 1:0);
       msg.set_int('s_rotateCounterClockwiseOnly', rotateCounterClockwiseOnly ? 1:0);
       msg.set_float('s_rotationSpeed', rotationSpeed);
@@ -524,44 +482,12 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_float('s_y1', tY1 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
       msg.set_float('s_x2', tX2 );
       msg.set_float('s_y2', tY2 + wobbleAmplitude * sin((wobbleSpeed * frameCount / 20.0)));
-      
-      //msg.set_float('s_startingRotation', startingRotation);
       msg.set_float('s_scalePropX', scalePropX);
       msg.set_float('s_scalePropY', scalePropY);
       msg.set_string('s_spriteName', 'spr'+spriteName);
-      if(rotateClockwiseOnly) {
-        previewRotation = previewRotation + rotationSpeed;
-      } else if(rotateCounterClockwiseOnly) {
-        previewRotation = previewRotation - rotationSpeed;
-      } else {
-        frameSkip = frameSkip == 0 ? 1 : frameSkip;
-          if(frameCount % frameSkip == 0) {
-            if(((previewRotation >= startingRotation + rotationClockwise) || 
-              (previewRotation <= startingRotation - rotationCounterClockwise)) &&
-              (pauseTimer > 0)) {
-                previewRotation = previewRotation;
-                if(get_time_us() - FRAME_DELTA >= lastTimestamp) {
-                  pauseTimer--;
-                }
-            } else {
-              pauseTimer = rotationPause;
-              previewRotation = previewRotation + rotationSpeed * previewRotationDir;
-              if(previewRotation >= startingRotation + rotationClockwise) {
-                previewRotation = startingRotation + rotationClockwise;
-                previewRotationDir *= -1;
-              } else if(previewRotation <= startingRotation - rotationCounterClockwise) {
-                previewRotation = startingRotation - rotationCounterClockwise;
-                previewRotationDir *= -1;
-              }
-            }
-          }
-      }
       msg.set_float('s_startingRotation', previewRotation);
-      broadcast_message('OnMyCustomEventName', msg);
     } else { // User has selected to use a prop, get the prop's sprite and draw it
-      message@ msg = create_message();
       msg.set_int('s_drawSprites', isCustomSprite ? 1:2);
-      broadcast_message('OnMyCustomEventName', msg);
       if((prop_set + prop_group + prop_index) != 0) {
         sprite_from_prop(prop_set, prop_group, prop_index, sprSet, sprName);
         spr1.set(sprSet, sprName);
@@ -569,52 +495,19 @@ class RailTrigger : trigger_base, callback_base {
         spr1.real_position(X1, Y1, startingRotation, realX1, realY1, scalePropX, scalePropY);
         spr2.real_position(X2, Y2, startingRotation, realX2, realY2, scalePropX, scalePropY);
       }
-
-
-      if(rotateClockwiseOnly) {
-        previewRotation = previewRotation + rotationSpeed;
-      } else if(rotateCounterClockwiseOnly) {
-        previewRotation = previewRotation - rotationSpeed;
-      } else {
-        if(((previewRotation >= startingRotation + rotationClockwise) || 
-          (previewRotation <= startingRotation - rotationCounterClockwise)) &&
-          (pauseTimer > 0)) {
-             previewRotation = previewRotation;
-             if(get_time_us() - FRAME_DELTA >= lastTimestamp) {
-                pauseTimer--;
-             }
-        } else {
-          pauseTimer = rotationPause;
-          previewRotation = previewRotation + rotationSpeed * previewRotationDir;
-          if(previewRotation >= startingRotation + rotationClockwise) {
-            previewRotation = startingRotation + rotationClockwise;
-            previewRotationDir *= -1;
-          } else if(previewRotation <= startingRotation - rotationCounterClockwise) {
-            previewRotation = startingRotation - rotationCounterClockwise;
-            previewRotationDir *= -1;
-          }
-        }
-      }
     }
-    
-    if(!prop_selector.visible && selectProp)
-    {
+
+    nextPreviewRotate();
+    broadcast_message('OnMyCustomEventName', msg);
+
+    if(!prop_selector.visible && selectProp) {
       prop_selector.select_group(null);
-      prop_selector.select_prop(null);
-      
-      if(true)
-      {
-        prop_selector.select_prop(prop_set, prop_group, prop_index, prop_palette);
-      }
-      else
-      {
-        prop_selector.select_prop(null);
-      }
+      prop_selector.select_prop(null); 
+      prop_selector.select_prop(prop_set, prop_group, prop_index, prop_palette);
       prop_selector.show();
       selectProp = false;
       self.editor_sync_vars_menu();
-    }
-    if(get_time_us() - FRAME_DELTA >= lastTimestamp) {
+    } if(get_time_us() - FRAME_DELTA >= lastTimestamp) {
       frameCount++;
     }
   }
@@ -622,6 +515,10 @@ class RailTrigger : trigger_base, callback_base {
   void step() {
     if(sendMessage) {
       message@ msg = create_message();
+      realX1 = tX1;
+      realX2 = tX2;
+      realY1 = tY1;
+      realY2 = tY2;
       msg.set_string('triggerID', name);
       msg.set_string('triggerType', 'propRail');
       msg.set_int('speed', speed);
@@ -632,8 +529,9 @@ class RailTrigger : trigger_base, callback_base {
       msg.set_int('index', prop_index);
       msg.set_int('palette', prop_palette);
       msg.set_int('start', start);
-      msg.set_int('runNTimes', runNTimes ? 1:0);
-
+      // If the user wants no rail movement, runNTimes to true, and num laps to 0
+      msg.set_int('runNTimes', runNTimes || noRailMovement ? 1:0);
+      msg.set_int('numLaps', noRailMovement ? 0 : numLaps);
       if(isCustomSprite) {
         msg.set_string('spriteName', 'spr'+spriteName);
         msg.set_string('spriteSet', 'script');
@@ -641,40 +539,20 @@ class RailTrigger : trigger_base, callback_base {
         msg.set_string('spriteName', sprName);
         msg.set_string('spriteSet', sprSet);
       }
-
       msg.set_int('isSprite', 1);
-      msg.set_int('numLaps', numLaps);
       msg.set_int('flipx', flipx ? 1:0);
       msg.set_int('flipy', flipy ? 1:0);
       msg.set_int('frameSkip', frameSkip == 0 ? 1 : frameSkip);
       msg.set_int('wobbleAmplitude', wobbleAmplitude);
       msg.set_int('wobbleSpeed', wobbleSpeed);
-      //if(layer <= 5) {
-        realX1 = tX1;
-        realX2 = tX2;
-        realY1 = tY1;
-        realY2 = tY2;
-      //}
-      if(layer > 5 ) {
-        msg.set_float('maxX', realX1 > realX2? realX1:realX2);
-        msg.set_float('minX', realX1 > realX2? realX2:realX1);
-        msg.set_float('maxY', realY1 > realY2? realY1:realY2);
-        msg.set_float('minY', realY1 > realY2? realY2:realY1);
-        msg.set_float('X1', realX1);
-        msg.set_float('X2', realX2);
-        msg.set_float('Y1', realY1);
-        msg.set_float('Y2', realY2);
-      } else {
-        msg.set_float('maxX', tX1 > tX2? tX1:tX2);
-        msg.set_float('minX', tX1 > tX2? tX2:tX1);
-        msg.set_float('maxY', tY1 > tY2? tY1:tY2);
-        msg.set_float('minY', tY1 > tY2? tY2:tY1);
-        msg.set_float('X1', tX1);
-        msg.set_float('X2', tX2);
-        msg.set_float('Y1', tY1);
-        msg.set_float('Y2', tY2);
-      }
-      
+      msg.set_float('maxX', max(realX1, realX2));
+      msg.set_float('minX', min(realX1, realX2));
+      msg.set_float('maxY', max(realY1, realY2));
+      msg.set_float('minY', min(realY1, realY2));
+      msg.set_float('X1', realX1);
+      msg.set_float('X2', realX2);
+      msg.set_float('Y1', realY1);
+      msg.set_float('Y2', realY2);
       msg.set_float('scaleX', flipx ? -1 * scalePropX : scalePropX);
       msg.set_float('scaleY', flipy ? -1 * scalePropY : scalePropY);
       msg.set_float('startingRotation', startingRotation);
@@ -689,6 +567,46 @@ class RailTrigger : trigger_base, callback_base {
     }
   }
   
+  // Calculate the next rotation value for the prop preview
+  void nextPreviewRotate() {
+    if(rotateClockwiseOnly || rotateCounterClockwiseOnly) {
+        previewRotation = previewRotation + abs(rotationSpeed) * (rotateClockwiseOnly ? 1 : -1);
+    } else if(frameCount % frameSkip == 0) {
+        if(shouldDecrementPauseTimer()) {
+          pauseTimer--;
+        } else {
+          pauseTimer = rotationPause;
+          previewRotation = previewRotation + rotationSpeed * previewRotationDir;
+          updatePreviewRotationDir();
+        }
+    }
+  }
+
+  // Updates the preview rotation if needed
+  void updatePreviewRotationDir() {
+    if(rotationSpeed == 0) {
+      previewRotation = startingRotation;
+    }
+
+    float maxRotation = startingRotation + rotationClockwise;
+    float minRotation = startingRotation - rotationCounterClockwise;
+
+    if(previewRotation >= maxRotation || previewRotation <= minRotation) {
+      previewRotation = previewRotation >= maxRotation ? maxRotation : minRotation;
+      previewRotationDir *= -1;
+    }
+  }
+
+  // Returns true if prop currently is in a state where it should be decrementing its rotation pause timer
+  bool shouldDecrementPauseTimer() {
+    // Prop is rotated to its max value (cw or ccw), and the pause timer still has time left, and we shouldnt skip this frame
+    return ((previewRotation >= startingRotation + rotationClockwise) || 
+           (previewRotation <= startingRotation - rotationCounterClockwise)) &&
+           (pauseTimer > 0) &&
+           (rotationSpeed > 0) &&
+           (get_time_us() - FRAME_DELTA >= lastTimestamp);
+  }
+
   void setRealXY() {
     maxX = tMaxX;
     minX = tMinX;
@@ -808,7 +726,6 @@ class RailTrigger : trigger_base, callback_base {
 
 class SpawnHelper {
   [text]int speed, layer, sublayer, set, group, index, palette, direction, start;
-  [text]bool exists;
   [hidden]bool isSprite;
   [text]float maxX, minX, maxY, minY, X1, X2, Y1, Y2, finalY;
   [text]float scaleX, scaleY;
@@ -835,12 +752,13 @@ class SpawnHelper {
   [hidden]int rotationDir;
   [hidden]int rotationPause;
   [hidden]int pauseTimer;
+  [hidden]Line propPath;
+
   SpawnHelper() {
     numLaps = 0;
     speed = 0;
     layer = 10;
     sublayer = 10;
-    exists = false;
     runNTimes = false;
     flipx = false;
     flipy = false;
@@ -884,5 +802,100 @@ class SpawnHelper {
 
   void setStart(int dir) {
       direction = dir == 1 ? 1 : -1;
+  }
+
+  // Returns true if line is verticle
+  bool isVerticle() {
+    return X1 == X2;
+  }
+
+  bool atEndOfRail() {
+    return (!isVerticle() && (sprx >= maxX || sprx <= minX)) || // X Movement end of rail
+           (isVerticle() && (spry >= maxY || spry <= minY));    // Y Movement end of rail
+  }
+
+  void moveAlongRail(int frameCount) {
+    if(!isVerticle()) {
+      // Get the point on the line that is sh.speed distance away from the current point
+      sprx = sprx + (direction * speed/sqrt(1+propPath.slope()*propPath.slope()));
+      spry = propPath.getY(sprx);
+    } else {
+      sprx = sprx;
+      spry += (speed * direction);
+    }
+  }
+
+  void wobble(int frameCount) {
+    //Ensure if we are done lapping, we dont constantly increase spry
+    if(!continueLaps()) {
+      if(Y1 != 0 && Y2 != 0 && finalY == 0) {
+        finalY = spry;
+      }
+       spry = finalY + wobbleAmplitude * sin(wobbleSpeed * frameCount / 20.0);
+    } else {
+      spry += wobbleAmplitude * sin(wobbleSpeed * frameCount / 20.0);
+    }
+    
+    
+  }
+
+  void wrapSpr() {
+    sprx = minX;
+    spry = X1 > X2 ? Y2 : Y1;
+    if(((start == 1) && ((isVerticle() && spry <= minY) || (!isVerticle() && sprx >= maxX))) || //Left start
+       (isVerticle() && spry >= maxY) || (!isVerticle() && sprx <= minX)) { // Right start
+      setSprStart();
+    }
+    
+    if(isVerticle()) {
+      spry = spry + (speed) * (start == 1 ? 1 : -1);
+    } else {
+      sprx = sprx + (speed) * (start == 1 ? 1 : -1);
+    }
+    numLaps--;
+  }
+
+  void flipDirectionSpr() {
+    Line propPath(X1, Y1, X2, Y2);
+    bool lineDefined = X1 != X2;
+
+    // Change direction of movement depending if line is verticle or horizontal
+    if(isVerticle()) {
+      direction = spry >= maxY ? -1 : 1;
+    } else {
+      direction = sprx >= maxX ? -1 : 1;
+    }
+
+    // Flip the prop if needed for X/Y
+    scaleX = flipx ? -1 * scaleX : scaleX;
+    scaleY = flipy ? -1 * scaleY : scaleY;
+
+    // Decrement lap count
+    numLaps--;
+  }
+
+    //Sets the sprite's x/y value to its starting value
+  void setSprStart() {
+    if(start == 1) {// If left to right
+      if(X1 != X2) {// Not vertical line
+        sprx = minX;
+        spry = X1 > X2 ? Y2 : Y1;
+      } else { // Vertical line
+        sprx = X1;
+        spry = minY;
+      }
+    } else {
+      if(X1 != X2) {// Not vertical line
+        sprx = maxX;
+        spry = X1 > X2 ? Y1 : Y2;
+      } else { // Vertical line
+        sprx = X1;
+        spry = maxY;
+      }
+    }
+  }
+
+  bool continueLaps() {
+    return !runNTimes || (runNTimes && numLaps >= 0);
   }
 }
