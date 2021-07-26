@@ -5,8 +5,8 @@ const uint MAX_SPEED = 100;
 const uint MINSPEED = 10; 
 
 const uint ACCEL = 50;
-const uint ACCEL_FORCE = 80;
-const float GRAVITY = 50;
+const uint ACCEL_FORCE = 20;
+const float GRAVITY = -50;
 const float FRICTION = -20;
 
 class script
@@ -63,39 +63,30 @@ class script
             }
             if(dm.x_intent() == -1) {
               //left accel
-              dm.set_speed_xy(lastSpeed[i*2] - ACCEL_FORCE, dm.y_speed());
+              dm.set_speed_xy(lastSpeed[i*2] - ACCEL_FORCE - ACCEL, dm.y_speed());
               if((lastSpeed[i*2] -= ACCEL) > MAX_SPEED) {
-                lastSpeed[i*2] -= ACCEL_FORCE;
+                lastSpeed[i*2] -= ACCEL_FORCE - ACCEL;
               }
             } else if(dm.x_intent() == 1){
               //right accel
-              dm.set_speed_xy(lastSpeed[i*2] + ACCEL_FORCE, dm.y_speed());
+              dm.set_speed_xy(lastSpeed[i*2] + ACCEL_FORCE + ACCEL, dm.y_speed());
               if((lastSpeed[i*2] += ACCEL) < MAX_SPEED) {
-                lastSpeed[i*2] += ACCEL_FORCE;
+                lastSpeed[i*2] += ACCEL_FORCE + ACCEL;
               }
             }
             if(dm.ground_surface_angle() < 0) {
-              if(dm.ground_surface_angle() == -45) {
-                dm.state(18);
-              }
-                
               //left accel
               dm.set_speed_xy(lastSpeed[i*2] - ACCEL, dm.y_speed());
               if((lastSpeed[i*2] -= ACCEL) > MAX_SPEED) {
                 lastSpeed[i*2] -= ACCEL;
               }
             } else if(dm.ground_surface_angle() > 0){
-              if(dm.ground_surface_angle() == 45) { 
-                //dm.state(18);
-              }
-                
               //right accel
-              dm.set_speed_xy(lastSpeed[i*2] + ACCEL, dm.y_speed()-10);
+              dm.set_speed_xy(lastSpeed[i*2] + ACCEL, dm.y_speed());
               if((lastSpeed[i*2] += ACCEL) < MAX_SPEED) {
                 lastSpeed[i*2] += ACCEL;
               }
             } else {
-              dm.state(0);
                if(dm.face() == 1) {
                 if(lastSpeed[i*2] + FRICTION > 0) {
                   dm.set_speed_xy(lastSpeed[i*2] + FRICTION * (dm.face()), dm.y_speed());
