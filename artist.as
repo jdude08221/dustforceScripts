@@ -29,6 +29,12 @@ class script : callback_base{
   [position,mode:world,layer:18,y:bY1] float bX1;
   [hidden] float bY1;
 
+  [position,mode:world,layer:18,y:cbY1] float cbX1;
+  [hidden] float cbY1;
+
+  [position,mode:world,layer:18,y:ebY1] float ebX1;
+  [hidden] float ebY1;
+
   [text] float brush_width;
 
   //TODO: make into array of buttons idk im dumb with ui
@@ -43,6 +49,9 @@ class script : callback_base{
   [hidden]ColorButton @color_button8;
   [hidden]ColorButton @color_button9;
 
+  [hidden]ClearButton @clear_button;
+  [hidden]EndButton @end_button;
+
   array<DrawingChunk@> drawing();
   uint code_index;
 
@@ -53,12 +62,34 @@ class script : callback_base{
     init_buttons();
     cur_color = BLACK;
     add_broadcast_receiver('color_picked', this, 'update_color');
+    add_broadcast_receiver('clear_canvas', this, 'clear_canvas');
+    add_broadcast_receiver('end_level', this, 'end_level');
+
     right_mouse_down = false;
   }
 
   void update_color(string id, message@ msg) {
     if(msg.get_string('color_change') == 'true') {  
       cur_color = msg.get_int("color");
+    }
+  }
+
+  void clear_canvas(string id, message@ msg) {
+    if(msg.get_string('clear_canvas') == 'true') {  
+      //clear canvas
+      puts("clear");
+      dustman@ dm = controller_entity(0).as_dustman();
+      entity@ e = create_entity("enemy_stoneboss");
+      e.as_controllable().scale(5, false);
+      e.set_xy(dm.x(), dm.y()-200);
+      e.as_controllable().attack_state(1);
+      g.add_entity(e);
+    }
+  }
+  
+  void end_level(string id, message@ msg) {
+    if(msg.get_string('end_level') == 'true') {  
+      g.end_level(0,0);
     }
   }
 
@@ -78,6 +109,9 @@ class script : callback_base{
     @color_button7 = ColorButton(ui, GREEN, bX1 + (BUTTON_SPACING*7) + ui.padding*7, bY1);
     @color_button8 = ColorButton(ui, BLUE, bX1 + (BUTTON_SPACING*8) + ui.padding*8, bY1);
     @color_button9 = ColorButton(ui, PURPLE, bX1 + (BUTTON_SPACING*9) + ui.padding*9, bY1);
+
+    @clear_button  = ClearButton (ui, cbX1, cbY1);
+    @end_button  = EndButton (ui, ebX1, cbY1);
   }
 
   void on_checkpoint_load() {
@@ -242,6 +276,8 @@ class script : callback_base{
     color_button7.draw();
     color_button8.draw();
     color_button9.draw();
+    clear_button.draw();
+    end_button.draw();
   }
 
   void draw(float sub_frame) {
@@ -254,8 +290,6 @@ class script : callback_base{
 
     custom_canvas.draw(cur_color);
 
-
-    //TODO: draw pixels
     if(get_left_mouse_down(player)) {
     custom_canvas.addPixels(mouse_x, mouse_y, brush_width);
     }
@@ -354,6 +388,96 @@ class ColorButton : ButtonClickHandler, callback_base {
   }
 }
 
+class ClearButton : ButtonClickHandler, callback_base {
+  private float TITLE_BAR_HEIGHT = 34;
+  private float SIZE = 10;
+  //Button
+  UI@ ui;
+  scene@ g;
+  Button@ clear_button;
+  Mouse@ mouse;
+  bool visible = true;
+  Rect border;
+
+  ClearButton(UI@ ui, float X1, float Y1) {
+    @g = get_scene();
+    @this.ui = ui;
+    @this.mouse = ui.mouse;
+    border = Rect(X1, Y1, X1 + SIZE, Y1 + SIZE);
+    const float height = TITLE_BAR_HEIGHT - ui.padding * 2;
+    @clear_button = Button(ui, Label(ui, 'Clear'));
+    clear_button.fit_to_height(height);
+    @clear_button.click_listener = this;
+  }
+
+  void draw() {
+    const float PADDING = ui.padding;
+    Rect rect = border;
+    rect.set(
+      rect.x1 - PADDING - clear_button.width, rect.y1,
+      rect.x1 - PADDING, rect.y2);
+    clear_button.draw(g, rect);
+  }
+
+  void show()
+  {
+    visible = true;
+  }
+
+  void on_button_click(Button@ button)
+  {
+    puts("clicked!");
+    message@ msg = create_message();
+    msg.set_string('clear_canvas', "true");
+    broadcast_message('clear_canvas', msg); 
+  }
+}
+
+class EndButton : ButtonClickHandler, callback_base {
+  private float TITLE_BAR_HEIGHT = 34;
+  private float SIZE = 10;
+  //Button
+  UI@ ui;
+  scene@ g;
+  Button@ end_button;
+  Mouse@ mouse;
+  bool visible = true;
+  Rect border;
+
+  EndButton(UI@ ui, float X1, float Y1) {
+    @g = get_scene();
+    @this.ui = ui;
+    @this.mouse = ui.mouse;
+    border = Rect(X1, Y1, X1 + SIZE, Y1 + SIZE);
+    const float height = TITLE_BAR_HEIGHT - ui.padding * 2;
+    @end_button = Button(ui, Label(ui, 'Done!'));
+    end_button.fit_to_height(height);
+    @end_button.click_listener = this;
+  }
+
+  void draw() {
+    const float PADDING = ui.padding;
+    Rect rect = border;
+    rect.set(
+      rect.x1 - PADDING - end_button.width, rect.y1,
+      rect.x1 - PADDING, rect.y2);
+    end_button.draw(g, rect);
+  }
+
+  void show()
+  {
+    visible = true;
+  }
+
+  void on_button_click(Button@ button)
+  {
+    puts("clicked!");
+    message@ msg = create_message();
+    msg.set_string('end_level', "true");
+    broadcast_message('end_level', msg); 
+  }
+}
+
 class ColorSwab : Shape
 {
   float thickness;
@@ -371,7 +495,7 @@ class ColorSwab : Shape
      float centre_y = rect.centre_y;
      float w = thickness * 0.5;
      //TODO layer?
-     g.draw_rectangle_world(19, 19, rect.x1-w, rect.y1-w, rect.x2+w, rect.y2+w, 0, color);
+     g.draw_rectangle_world(17, 20, rect.x1-w, rect.y1-w, rect.x2+w, rect.y2+w, 0, color);
   }
 
 }
@@ -434,7 +558,7 @@ class CustomCanvas {
   }
 
   void drawCanvas() {
-    g.draw_rectangle_world(18, 10, X1, Y1, X2, Y2, 0, WHITE);
+    g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, WHITE);
   }
 
   void drawPixels(DrawingChunk chunk) {
@@ -450,7 +574,7 @@ class CustomCanvas {
   }
 
   void drawBrush() {
-    g.draw_rectangle_world(18, 12,
+    g.draw_rectangle_world(17, 12,
       brushRect.x1,
       brushRect.y1,
       brushRect.x2,
@@ -528,6 +652,7 @@ class CustomCanvas {
 
           float relX = abs(max(pixelX1, X1) - min(pixelX1, X1));
           float relY = abs(max(pixelY1, Y1) - min(pixelY1, Y1));
+
           uint index_i = uint(floor(relY/pixelSize));
           uint index_j = uint(floor(relX/pixelSize));
           //puts("i: "+index_i+" j: "+index_j);
@@ -563,7 +688,7 @@ class CustomCanvas {
     for(uint i = 0; i < pixels.size(); i++) {
       for(uint j = 0; j < pixels[i].size(); j++) {
         if(@pixels[i][j] != null) {
-          g.draw_rectangle_world(18, 11,
+          g.draw_rectangle_world(17, 11,
           pixels[i][j].rect.x1,
           pixels[i][j].rect.y1,
           pixels[i][j].rect.x2,
