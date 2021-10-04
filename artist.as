@@ -64,8 +64,10 @@ class script : callback_base{
 
   void clear_canvas(string id, message@ msg) {
     if(msg.get_string('clear_canvas') == 'true') {  
-      //clear canvas
+      //Clear canvas
       dustman@ dm = controller_entity(0).as_dustman();
+
+      //Spawn large totem above dustman in attacking state and add to scene
       entity@ e = create_entity("enemy_stoneboss");
       e.as_controllable().scale(5, false);
       e.set_xy(dm.x(), dm.y()-200);
@@ -101,7 +103,7 @@ class script : callback_base{
     //TODO: implement music
   }
 
-  //taunt, light, heavy, light, dash, dash, taunt
+  //NOT USED, implement if you want secret combo to end level
   void update_code(dustman@ dm) {
     switch(code_index) {
       case 0:
@@ -227,8 +229,10 @@ class script : callback_base{
         custom_canvas.updateBrushWidth(brush_width);
       }
     } else if(get_mouse_scroll_up(0)) {
-      brush_width+=pixelSize;
-      custom_canvas.updateBrushWidth(brush_width);
+      if(brush_width*2 < max(custom_canvas.width, custom_canvas.height)){
+        brush_width+=pixelSize;
+        custom_canvas.updateBrushWidth(brush_width);
+      }
     }
   }
 
