@@ -2,7 +2,7 @@ const string EMBED_sound1 = "amb1.ogg";
 const string EMBED_sound2 = "amb2.ogg";
 const string EMBED_sound3 = "amb3ice.ogg";
 const string EMBED_sound4 = "amb3ice.ogg";
-const string EMBED_sound5 = "music.ogg";// this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
+const string EMBED_sound5 = "Pretender.ogg";// this should be the music track if you want it.  If you dont want music, go to on_level_start() and delete 
                                          // @musicHandle = g.play_script_stream(EMBED_sound10.split(".")[0], 2, 0, 0, true, musicVolume/100);
                                          // Or just set the volume to 0 in the script in the script editor UI
 const uint WHITE = 4294967295;
@@ -78,6 +78,7 @@ class script : callback_base {
     msg.set_string(EMBED_sound3.split(".")[0], "sound3");
     msg.set_string(EMBED_sound4.split(".")[0], "sound4");
     msg.set_string(EMBED_sound5.split(".")[0], "sound5"); //music
+    msg.set_int("sound5|loop", 755600); // 
     //msg.set_int("sound5|loop", 211005); //SET SAMPLES HERE
   }
 
@@ -139,8 +140,8 @@ class soundEffect: trigger_base, callback_base {
   [text]bool playOncePerActivation;
   [text]bool showRadius;
   
-  [option,1:sound1,2:sound2,3:sound3,4:sound4,5:music]int sfx;
-  [option,1:music,2:ambience,3:sfx] uint soundGroup;
+  [option,1:none,1:sound1,2:sound2,3:sound3,4:sound4,5:music]int sfx;
+  [option,0:none,1:music,2:ambience,3:sfx] uint soundGroup;
     
   soundEffect() {
     sfx = 1;
