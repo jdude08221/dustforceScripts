@@ -10,8 +10,15 @@
 #include "jlib/ui/ColorSwab.as"
 #include "jlib/ui/LabelButton.as"
 
+const string EMBED_drums = "artist/drums.ogg";
+const string EMBED_rest = "artist/rest.ogg";
+const string EMBED_splash = "artist/splash.ogg";
+const string EMBED_draw = "artist/draw.ogg";
+const string EMBED_erase = "artist/erase.ogg";
+
 const float BUTTON_SPACING = 20;
 const uint NUM_COLOR_BUTTONS = 32;
+
 class script : callback_base{
   scene@ g;
   UI@ ui = UI();
@@ -19,26 +26,35 @@ class script : callback_base{
 
   uint cur_color;
   uint temp_color;
-
+  entity@ totem;
   bool right_mouse_down;
   [hidden] uint numPlayers;
   [text]CustomCanvas custom_canvas;
   [text] float pixelSize;
   [position,mode:world,layer:18,y:bY1] float bX1;
   [hidden] float bY1;
-
   [position,mode:world,layer:18,y:cbY1] float cbX1;
   [hidden] float cbY1;
-
   [position,mode:world,layer:18,y:ebY1] float ebX1;
   [hidden] float ebY1;
-
   [text] float brush_width;
-
   [hidden] array<ColorButton@> color_buttons(NUM_COLOR_BUTTONS);
-
   [hidden]LabelButton @clear_button;
   [hidden]LabelButton @end_button;
+  [entity] int apple;
+  [hidden] bool appleSpawned;
+  //max volume of rest_song
+  [hidden] float rest_song_vol;
+  //max volume of drum song
+  [hidden] float drum_song_vol;
+  //bool to dennote if we should be fading in or out the song
+  [hidden] bool doFadeIn = false;
+  //speed we should fade the song in/out
+  [text] int fadeSpeed;
+  //frame counter for current fade
+  [hidden] int currentFade;
+  audio@ drums_song;
+  audio@ rest_song;
 
   array<Pixel@> drawing();
   uint code_index;
@@ -54,6 +70,11 @@ class script : callback_base{
     add_broadcast_receiver('clear_canvas', this, 'clear_canvas');
     add_broadcast_receiver('end_level', this, 'end_level');
     right_mouse_down = false;
+    appleSpawned = false;
+    fadeSpeed = 100;
+    currentFade = 0;
+    rest_song_vol = .5;
+    drum_song_vol = .5;
   }
 
   void update_color(string id, message@ msg) {
@@ -68,11 +89,11 @@ class script : callback_base{
       dustman@ dm = controller_entity(0).as_dustman();
 
       //Spawn large totem above dustman in attacking state and add to scene
-      entity@ e = create_entity("enemy_stoneboss");
-      e.as_controllable().scale(5, false);
-      e.set_xy(dm.x(), dm.y()-200);
-      e.as_controllable().attack_state(1);
-      g.add_entity(e);
+      @totem = create_entity("enemy_stoneboss");
+      totem.as_controllable().scale(5, false);
+      totem.set_xy(dm.x(), dm.y()-200);
+      totem.as_controllable().attack_state(1);
+      g.add_entity(totem);
     }
   }
   
@@ -85,6 +106,8 @@ class script : callback_base{
   void on_level_start() {
     init_buttons();
     custom_canvas.init(pixelSize);
+    @drums_song = g.play_persistent_stream('drums', 1, true, drum_song_vol, true);
+    @rest_song = g.play_persistent_stream('rest', 1, true, 0, true);
   }
 
   void init_buttons() {
@@ -100,7 +123,11 @@ class script : callback_base{
   }
 
   void build_sounds(message@ msg) {
-    //TODO: implement music
+    msg.set_string("drums", "drums");
+    msg.set_string("rest", "rest");
+    msg.set_string("splash", "splash");
+    msg.set_string("draw", "draw");
+    msg.set_string("erase", "erase");
   }
 
   //NOT USED, implement if you want secret combo to end level
@@ -212,7 +239,22 @@ class script : callback_base{
   void step(int) {
     ui.step();
     custom_canvas.updatePixelSize(pixelSize);
-  
+
+    //fade in or out music
+    if(doFadeIn) {
+      fadeIn();
+    } else {
+      fadeOut();
+    }
+
+    if(@totem != null && 
+       totem.as_controllable().life() <= 0 &&
+       @entity_by_id(apple) != null &&
+       !appleSpawned) {
+      dustman@ dm = controller_entity(0).as_dustman();
+      entity_by_id(apple).set_xy(dm.x(), dm.y() - 400);
+      appleSpawned = true;
+    }
     if(@controller_entity(0) == null) {
       return;
     }
@@ -224,7 +266,7 @@ class script : callback_base{
     right_mouse_down = get_right_mouse_down(0);
 
     if(get_mouse_scroll_down(0)) {
-      if(brush_width > 5 && brush_width - pixelSize >= 5) {
+      if(brush_width >= 16 && brush_width - pixelSize >= 5) {
         brush_width-=pixelSize;
         custom_canvas.updateBrushWidth(brush_width);
       }
@@ -253,7 +295,10 @@ class script : callback_base{
                       cur_color);
 
     if(get_left_mouse_down(0)) {
-      custom_canvas.addPixels(mouse_x, mouse_y);
+      // Fade in if we are drawing
+      doFadeIn = custom_canvas.addPixels(mouse_x, mouse_y);
+    } else {
+      doFadeIn = false;
     }
 
     if(right_mouse_down) {
@@ -262,12 +307,23 @@ class script : callback_base{
         temp_color = cur_color;
         cur_color = WHITE;
       }
-      custom_canvas.removePixels(mouse_x, mouse_y);
+      // Fade in if we are erasing
+      doFadeIn = custom_canvas.removePixels(mouse_x, mouse_y);
     } else {
-      if(temp_color != WHITE) {
-        cur_color = temp_color;
-        temp_color = WHITE;
+        if(temp_color != WHITE) {
+          cur_color = temp_color;
+          temp_color = WHITE;
+          doFadeIn = false;
+        }
       }
+
+    if(custom_canvas.drewLastFrame) {
+      g.play_script_stream("draw", 2, 0, 0, false, .85);
+    } 
+    
+    if(custom_canvas.erasedLastFrame) {
+      audio@ a = g.play_script_stream("erase", 2, 0, 0, false, 1);
+      a.time_scale(.65);
     }
   }
 
@@ -281,6 +337,7 @@ class script : callback_base{
     ui.step();
     init_buttons();
   }
+
   /*Helper methods*/
   bool get_left_mouse_down(int player) {
     return (g.mouse_state(player) & 0x04) == 0x04;
@@ -300,6 +357,30 @@ class script : callback_base{
 
   bool get_mouse_middle_down(int player) {
     return (g.mouse_state(player) & 0x10) == 0x10;
+  }
+
+  void fadeIn() {
+    if(currentFade <= fadeSpeed) {
+      float t1 = currentFade;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      rest_song.volume((t1/t2) * rest_song_vol);
+
+      currentFade++;
+    }
+  }
+
+  void fadeOut() {
+     if(currentFade > 0) {
+      float t1 = currentFade;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      rest_song.volume((t1/t2) * rest_song_vol);
+
+      currentFade--;
+    }
   }
 }
 
@@ -343,5 +424,6 @@ class ColorButton : ButtonClickHandler, callback_base {
     msg.set_string('color_change', "true");
     msg.set_int('color', col);
     broadcast_message('color_picked', msg); 
+    g.play_script_stream("splash", 2, 0, 0, false, 10);
   }
 }
