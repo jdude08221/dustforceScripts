@@ -43,6 +43,7 @@ class script : callback_base{
   [hidden]LabelButton @end_button;
   [entity] int apple;
   [hidden] bool appleSpawned;
+  [hidden] bool levelEnded;
   //max volume of rest_song
   [hidden] float rest_song_vol;
   //max volume of drum song
@@ -75,6 +76,7 @@ class script : callback_base{
     currentFade = 0;
     rest_song_vol = .5;
     drum_song_vol = .5;
+    levelEnded = false;
   }
 
   void update_color(string id, message@ msg) {
@@ -98,16 +100,36 @@ class script : callback_base{
   }
   
   void end_level(string id, message@ msg) {
-    if(msg.get_string('end_level') == 'true') {  
+    if(msg.get_string('end_level') == 'true') { 
+      puts(custom_canvas.getNumColors()+""); 
+      custom_canvas.disableDrawing();
       g.end_level(0,0);
+      levelEnded = true;
     }
   }
 
   void on_level_start() {
     init_buttons();
     custom_canvas.init(pixelSize);
-    @drums_song = g.play_persistent_stream('drums', 1, true, drum_song_vol, true);
-    @rest_song = g.play_persistent_stream('rest', 1, true, 0, true);
+    doFadeIn = false;
+    levelEnded = false;
+
+    //Get previous persistent stream handles in case level was restarted to handle fading correctly
+    audio@ r = g.get_persistent_stream('rest');
+    audio@ d = g.get_persistent_stream('rest');
+
+    if(@r != null) {
+      @rest_song = r;
+      rest_song.volume(0);
+    } else {
+      @rest_song = g.play_persistent_stream('rest', 1, true, 0, true);
+    }
+
+    if(@d != null) {
+      @drums_song = d;
+    } else {
+      @drums_song = g.play_persistent_stream('drums', 1, true, drum_song_vol, true);
+    }
   }
 
   void init_buttons() {
@@ -130,118 +152,14 @@ class script : callback_base{
     msg.set_string("erase", "erase");
   }
 
-  //NOT USED, implement if you want secret combo to end level
-  void update_code(dustman@ dm) {
-    switch(code_index) {
-      case 0:
-        if(dm.taunt_intent() == 1 && 
-        dm.heavy_intent() == 0 &&
-        dm.light_intent() == 0 &&
-        dm.dash_intent() == 0 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else {
-          code_index = 0;
-        }
-        break;
-      case 1:
-      if(dm.taunt_intent() == 0 && 
-        dm.heavy_intent() != 10 &&
-        dm.light_intent() != 10 &&
-        dm.dash_intent() == 1 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else if(dm.taunt_intent() != 0 ||
-        dm.heavy_intent() == 10 ||
-        dm.light_intent() == 10 ||
-        dm.jump_intent() != 0){
-          code_index = 0;
-        }
-        break;
-      case 2:
-      if(dm.taunt_intent() == 0 && 
-        dm.heavy_intent() != 10 &&
-        dm.light_intent() != 10 &&
-        dm.dash_intent() == 1 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else if(dm.taunt_intent() != 0 ||
-        dm.heavy_intent() == 10 ||
-        dm.light_intent() == 10 ||
-        dm.jump_intent() != 0){
-          code_index = 0;
-        }
-        break;
-      case 3:
-      if(dm.taunt_intent() == 0 && 
-        dm.heavy_intent() != 10 &&
-        dm.light_intent() != 10 &&
-        dm.dash_intent() == 1 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else if(dm.taunt_intent() != 0 ||
-        dm.heavy_intent() == 10 ||
-        dm.light_intent() == 10 ||
-        dm.jump_intent() != 0){
-          code_index = 0;
-        }
-        break;
-      case 4:
-      if(dm.taunt_intent() == 0 && 
-        dm.heavy_intent() != 10 &&
-        dm.light_intent() != 10 &&
-        dm.dash_intent() == 1 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else if(dm.taunt_intent() != 0 ||
-        dm.heavy_intent() == 10 ||
-        dm.light_intent() == 10 ||
-        dm.jump_intent() != 0){
-          code_index = 0;
-        }
-        break;
-      case 5:
-      if(dm.taunt_intent() == 0 && 
-        dm.heavy_intent() != 10 &&
-        dm.light_intent() != 10 &&
-        dm.dash_intent() == 1 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else if(dm.taunt_intent() != 0 ||
-        dm.heavy_intent() == 10 ||
-        dm.light_intent() == 10 ||
-        dm.jump_intent() != 0){
-          code_index = 0;
-        }
-        break;
-      case 6:
-       if(dm.taunt_intent() == 1 && 
-        dm.heavy_intent() != 10 &&
-        dm.light_intent() != 10 &&
-        dm.dash_intent() == 0 &&
-        dm.jump_intent() == 0) {
-          code_index++;
-        } else if(
-        dm.heavy_intent() == 10 ||
-        dm.light_intent() == 10 ||
-        dm.dash_intent() != 0 ||
-        dm.jump_intent() != 0){
-          code_index = 0;
-        }
-        break;
-      case 7:
-        g.end_level(dm.x(), dm.y());
-        break;
 
-    }
-  }
 
   void step(int) {
     ui.step();
     custom_canvas.updatePixelSize(pixelSize);
 
-    //fade in or out music
-    if(doFadeIn) {
+    //fade in or out music. On level end, play both tracks
+    if(doFadeIn || levelEnded) {
       fadeIn();
     } else {
       fadeOut();
@@ -259,19 +177,16 @@ class script : callback_base{
       return;
     }
 
-    dustman@ dm = controller_entity(0).as_dustman();
-    update_code(dm);
-
     //handle mouse inputs
     right_mouse_down = get_right_mouse_down(0);
 
     if(get_mouse_scroll_down(0)) {
-      if(brush_width >= 16 && brush_width - pixelSize >= 5) {
+      if(brush_width >= pixelSize && brush_width - pixelSize >= 5) {
         brush_width-=pixelSize;
         custom_canvas.updateBrushWidth(brush_width);
       }
     } else if(get_mouse_scroll_up(0)) {
-      if(brush_width*2 < max(custom_canvas.width, custom_canvas.height)){
+      if(brush_width < max(custom_canvas.width, custom_canvas.height)){
         brush_width+=pixelSize;
         custom_canvas.updateBrushWidth(brush_width);
       }
