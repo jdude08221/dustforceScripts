@@ -118,8 +118,8 @@ class CustomCanvas {
       uint relX = uint(abs(floor(mouse_x) - min(X1, X2)));
       uint relY = uint(abs(floor(mouse_y) - min(Y1, Y2)));
       
-      float numPixelsHorz = floor((relX) / pixelSize);
-      float numPixelsVert = floor((relY) / pixelSize);
+      float numPixelsHorz = floor(relX / pixelSize);
+      float numPixelsVert = floor(relY / pixelSize);
       
       //Ensure brush stays inside canvas and tapers off as you move off the canvas
       float brushX1 = max(min(X1,X2) + (numPixelsHorz * pixelSize) - brush_width, min(X1, X2));
@@ -171,6 +171,9 @@ class CustomCanvas {
     
     //Draw the pixels on the canvas
     drawPixels();
+
+    //reset the drawing state
+    resetDraw();
   }
 
   /*
@@ -231,8 +234,7 @@ class CustomCanvas {
    * returns true if called when mouse is inside the canvas
    */
   bool removePixels(float mouse_x, float mouse_y, bool painting = false) {
-    erasedLastFrame = false;
-    drewLastFrame = false;
+
     if(insideCanvas(mouse_x, mouse_y)) {
       //Iterate over each pixel inside the brush rectangle
       for(float i = brushRect.y1; i < brushRect.y2; i += pixelSize) {
@@ -261,7 +263,6 @@ class CustomCanvas {
       }
       return true;
     }
-      
     return false;
   }
 
@@ -285,7 +286,7 @@ class CustomCanvas {
   }
   
   /*
-   * Should be called at the end of script::draw()
+   * Called at the end of draw() to reset what was done last frame
    */
   void resetDraw() {
     drewLastFrame = false;
