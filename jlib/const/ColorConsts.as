@@ -64,4 +64,4 @@ const array<uint> COLOR_LIST = {
   TIMBERWOLF,
   CADETBLUE,
   GRAY
-  };
+};
