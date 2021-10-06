@@ -26,6 +26,8 @@ class CustomCanvas {
   [hidden] float brush_width;
   [hidden] Rect brushRect;
   [hidden] uint cur_color;
+  [hidden] bool drewLastFrame;
+  [hidden] bool erasedLastFrame;
 
   scene@ g;
 
@@ -34,6 +36,8 @@ class CustomCanvas {
     pixelSize = 10;
     cur_color = WHITE;
     brushRect = Rect(0,0,0,0);
+    drewLastFrame = false;
+    erasedLastFrame = false;
   }
 
   /*
@@ -114,8 +118,8 @@ class CustomCanvas {
       uint relX = uint(abs(floor(mouse_x) - min(X1, X2)));
       uint relY = uint(abs(floor(mouse_y) - min(Y1, Y2)));
       
-      float numPixelsHorz = floor(relX / pixelSize);
-      float numPixelsVert = floor(relY / pixelSize);
+      float numPixelsHorz = floor((relX) / pixelSize);
+      float numPixelsVert = floor((relY) / pixelSize);
       
       //Ensure brush stays inside canvas and tapers off as you move off the canvas
       float brushX1 = max(min(X1,X2) + (numPixelsHorz * pixelSize) - brush_width, min(X1, X2));
@@ -172,12 +176,16 @@ class CustomCanvas {
   /*
    * Takes mouse coordinates (mouse_x, mouse_y) as arguments
    * should be called whenever you want to draw pixels and
-   * store them to the canvas
+   * store them to the canvas. returns true if called while mouse
+   * is inside the canvas
    */
-  void addPixels(float mouse_x, float mouse_y) {
+  bool addPixels(float mouse_x, float mouse_y) {
+    drewLastFrame = false;
+    erasedLastFrame = false;
     //If we are using white, just make the pixels null to save on computation
     if(cur_color == WHITE) {
-      removePixels(mouse_x, mouse_y);
+      removePixels(mouse_x, mouse_y, true);
+      return true;
     } else if(insideCanvas(mouse_x, mouse_y)) {
       //Iterate over each pixel inside the brush rectangle
       for(float i = brushRect.y1; i < brushRect.y2; i += pixelSize) {
@@ -201,18 +209,30 @@ class CustomCanvas {
           //And save it
           uint index_i = uint(floor(relY/pixelSize));
           uint index_j = uint(floor(relX/pixelSize));
-          pixels[index_i].removeAt(index_j);
-          pixels[index_i].insertAt(index_j, d);
+
+          if(@pixels[index_i][index_j] == null ||
+            pixels[index_i][index_j].color != cur_color) {
+            drewLastFrame = true;
+          }
+            
+            pixels[index_i].removeAt(index_j);
+            pixels[index_i].insertAt(index_j, d);
         }
       }
+      return true;
     }
+    return false;
   }
 
   /*
-   * Takes mouse coordinates (mouse_x, mouse_y) as arguments should
-   * be called whenever you want to remove pixels from the canvas
+   * Takes mouse coordinates (mouse_x, mouse_y) as arguments, as well as a bool that
+   * dennotes if we are actually painting white (which is handled by erasing)
+   * should be called whenever you want to remove pixels from the canvas
+   * returns true if called when mouse is inside the canvas
    */
-  void removePixels(float mouse_x, float mouse_y) {
+  bool removePixels(float mouse_x, float mouse_y, bool painting = false) {
+    erasedLastFrame = false;
+    drewLastFrame = false;
     if(insideCanvas(mouse_x, mouse_y)) {
       //Iterate over each pixel inside the brush rectangle
       for(float i = brushRect.y1; i < brushRect.y2; i += pixelSize) {
@@ -225,11 +245,24 @@ class CustomCanvas {
           float relY = abs(max(pixelY1, Y1) - min(pixelY1, Y1));
           uint index_i = uint(floor(relY/pixelSize));
           uint index_j = uint(floor(relX/pixelSize));
+
+          if(@pixels[index_i][index_j] != null &&
+            pixels[index_i][index_j].color != WHITE) {
+            if(painting) {
+              drewLastFrame = true;
+            } else {
+              erasedLastFrame = true;
+            }
+          }
+
           pixels[index_i].removeAt(index_j);
           pixels[index_i].insertAt(index_j, null);
         }
       }
+      return true;
     }
+      
+    return false;
   }
 
   /*
@@ -249,5 +282,13 @@ class CustomCanvas {
         }
       }
     }
+  }
+  
+  /*
+   * Should be called at the end of script::draw()
+   */
+  void resetDraw() {
+    drewLastFrame = false;
+    erasedLastFrame = false;
   }
 }
