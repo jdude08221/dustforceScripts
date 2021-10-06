@@ -1,4 +1,5 @@
 #include "Pixel.as"
+#include "../const/ColorConsts.as"
 /*
  * Custom Canvas class used to draw on.
  * requirements to use:
@@ -28,7 +29,7 @@ class CustomCanvas {
   [hidden] uint cur_color;
   [hidden] bool drewLastFrame;
   [hidden] bool erasedLastFrame;
-
+  [hidden] bool stopDrawing;
   scene@ g;
 
   CustomCanvas() {
@@ -38,6 +39,7 @@ class CustomCanvas {
     brushRect = Rect(0,0,0,0);
     drewLastFrame = false;
     erasedLastFrame = false;
+    stopDrawing = false;
   }
 
   /*
@@ -49,27 +51,25 @@ class CustomCanvas {
     //Some future calculations easier (not the best design)
     updateBrushWidth(pix_size);
 
+    pixelSize = pix_size;
     //Determining X1 and X2
     float temp = min(X1, X2);
-    uint pixelWidth = uint((max(X1,X2) - temp) / pixelSize);
+    uint pixelWidth = ceil((max(X1,X2) - temp) / pixelSize);
     X2 = temp + pixelWidth * pixelSize;
     X1 = temp;
 
     //Determining Y1 and Y2
     temp = min(Y1, Y2);
-    uint pixelHeight = uint((max(Y1,Y2) - temp) / pixelSize);
+    uint pixelHeight = ceil((max(Y1,Y2) - temp) / pixelSize);
     Y2 = temp + pixelHeight * pixelSize;
     Y1 = temp;
-
     //Update canvas resolution
     height = abs(Y1 - Y2);
     width = abs(X1 - X2);
 
-    pixelSize = pix_size;
-
     //fill pixels matrix with empty pixels
     for(uint i = 0; i < uint(height); i += uint(pixelSize)) {
-      pixels.insertLast(array<Pixel@>(uint(width/pixelSize)));
+      pixels.insertLast(array<Pixel@>(uint(round(width/pixelSize))));
     }
   }
 
@@ -115,17 +115,17 @@ class CustomCanvas {
   void updateBrushPos(float mouse_x, float mouse_y) {
     //Only draw if mouse is inside canvas
     if(insideCanvas(mouse_x, mouse_y)) {
-      uint relX = uint(abs(floor(mouse_x) - min(X1, X2)));
-      uint relY = uint(abs(floor(mouse_y) - min(Y1, Y2)));
+      float relX = abs(mouse_x - min(X1, X2));
+      float relY = abs(mouse_y - min(Y1, Y2));
       
       float numPixelsHorz = floor(relX / pixelSize);
       float numPixelsVert = floor(relY / pixelSize);
       
       //Ensure brush stays inside canvas and tapers off as you move off the canvas
-      float brushX1 = max(min(X1,X2) + (numPixelsHorz * pixelSize) - brush_width, min(X1, X2));
-      float brushX2 = min(min(X1,X2) + (numPixelsHorz * pixelSize) + brush_width, max(X1, X2));
-      float brushY1 = max(min(Y1,Y2) + (numPixelsVert * pixelSize) - brush_width, min(Y1, Y2));
-      float brushY2 = min(min(Y1,Y2) + (numPixelsVert * pixelSize) + brush_width, max(Y1, Y2));
+       float brushX1 = max(min(X1,X2) + uint(numPixelsHorz * pixelSize), min(X1, X2));
+       float brushX2 = min(min(X1,X2) + uint(numPixelsHorz * pixelSize) + brush_width, max(X1, X2));
+       float brushY1 = max(min(Y1,Y2) + uint(numPixelsVert * pixelSize), min(Y1, Y2));
+       float brushY2 = min(min(Y1,Y2) + uint(numPixelsVert * pixelSize) + brush_width, max(Y1, Y2));
       brushRect.x1 = brushX1;
       brushRect.x2 = brushX2;
       brushRect.y1 = brushY1;
@@ -159,6 +159,14 @@ class CustomCanvas {
    */
   void draw(float mouse_x, float mouse_y, uint color) {
     cur_color = color;
+
+    //Stop allowing user input
+    if(stopDrawing) {
+      //Draw the pixels on the canvas
+      drawCanvas();
+      drawPixels();
+      return;
+    }
 
     //Update the brush preview
     updateBrushPos(mouse_x, mouse_y);
@@ -217,7 +225,6 @@ class CustomCanvas {
             pixels[index_i][index_j].color != cur_color) {
             drewLastFrame = true;
           }
-            
             pixels[index_i].removeAt(index_j);
             pixels[index_i].insertAt(index_j, d);
         }
@@ -291,5 +298,34 @@ class CustomCanvas {
   void resetDraw() {
     drewLastFrame = false;
     erasedLastFrame = false;
+  }
+
+  uint getNumColors() {
+    dictionary colors;
+    for(uint i = 0; i < COLOR_LIST.size(); i++) {
+      colors.set(""+COLOR_LIST[i], 0);
+    }
+
+    uint ret = 0;
+    for(uint i = 0; i < pixels.size(); i++) {
+      for(uint j = 0; j < pixels[i].size(); j++) {
+        if(@pixels[i][j] == null) {
+          ret += uint(colors[""+WHITE]) == 1 ? 0 : 1;
+          colors[""+WHITE] = 1;
+        } else {
+          ret += uint(colors[""+pixels[i][j].color]) == 1 ? 0 : 1;
+          colors[""+pixels[i][j].color] = 1;
+        }
+      }
+    }
+    return ret;
+  }
+
+  /*
+   * Can be called to disallow further drawing. Canvas and current drawing
+   * so far will still be drawn however
+   */
+  void disableDrawing() {
+    stopDrawing = true;
   }
 }
