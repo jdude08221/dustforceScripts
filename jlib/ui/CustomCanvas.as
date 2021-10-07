@@ -30,6 +30,7 @@ class CustomCanvas {
   [hidden] bool drewLastFrame;
   [hidden] bool erasedLastFrame;
   [hidden] bool stopDrawing;
+  dictionary colors;
   scene@ g;
 
   CustomCanvas() {
@@ -40,6 +41,9 @@ class CustomCanvas {
     drewLastFrame = false;
     erasedLastFrame = false;
     stopDrawing = false;
+    for(uint i = 0; i < COLOR_LIST.size(); i++) {
+      colors.set(""+COLOR_LIST[i], 0);
+    }
   }
 
   /*
@@ -54,13 +58,13 @@ class CustomCanvas {
     pixelSize = pix_size;
     //Determining X1 and X2
     float temp = min(X1, X2);
-    uint pixelWidth = ceil((max(X1,X2) - temp) / pixelSize);
+    uint pixelWidth = uint(ceil((max(X1,X2) - temp) / pixelSize));
     X2 = temp + pixelWidth * pixelSize;
     X1 = temp;
 
     //Determining Y1 and Y2
     temp = min(Y1, Y2);
-    uint pixelHeight = ceil((max(Y1,Y2) - temp) / pixelSize);
+    uint pixelHeight = uint(ceil((max(Y1,Y2) - temp) / pixelSize));
     Y2 = temp + pixelHeight * pixelSize;
     Y1 = temp;
     //Update canvas resolution
@@ -223,8 +227,10 @@ class CustomCanvas {
 
           if(@pixels[index_i][index_j] == null ||
             pixels[index_i][index_j].color != cur_color) {
+            colors[""+d.color] = uint(colors[""+d.color]) + 1;
             drewLastFrame = true;
           }
+            
             pixels[index_i].removeAt(index_j);
             pixels[index_i].insertAt(index_j, d);
         }
@@ -241,7 +247,6 @@ class CustomCanvas {
    * returns true if called when mouse is inside the canvas
    */
   bool removePixels(float mouse_x, float mouse_y, bool painting = false) {
-
     if(insideCanvas(mouse_x, mouse_y)) {
       //Iterate over each pixel inside the brush rectangle
       for(float i = brushRect.y1; i < brushRect.y2; i += pixelSize) {
@@ -260,10 +265,12 @@ class CustomCanvas {
             if(painting) {
               drewLastFrame = true;
             } else {
+              uint count = uint(colors[""+pixels[index_i][index_j].color]);
+              colors[""+pixels[index_i][index_j].color] = count > 0 ? count - 1 : count;
               erasedLastFrame = true;
             }
           }
-
+          
           pixels[index_i].removeAt(index_j);
           pixels[index_i].insertAt(index_j, null);
         }
@@ -301,22 +308,9 @@ class CustomCanvas {
   }
 
   uint getNumColors() {
-    dictionary colors;
-    for(uint i = 0; i < COLOR_LIST.size(); i++) {
-      colors.set(""+COLOR_LIST[i], 0);
-    }
-
     uint ret = 0;
-    for(uint i = 0; i < pixels.size(); i++) {
-      for(uint j = 0; j < pixels[i].size(); j++) {
-        if(@pixels[i][j] == null) {
-          ret += uint(colors[""+WHITE]) == 1 ? 0 : 1;
-          colors[""+WHITE] = 1;
-        } else {
-          ret += uint(colors[""+pixels[i][j].color]) == 1 ? 0 : 1;
-          colors[""+pixels[i][j].color] = 1;
-        }
-      }
+    for(uint i = 0; i < COLOR_LIST.size(); i++) {
+      ret += uint(colors[""+COLOR_LIST[i]]) > 0 ? 1 : 0;
     }
     return ret;
   }
