@@ -10,11 +10,13 @@
 #include "jlib/ui/ColorSwab.as"
 #include "jlib/ui/LabelButton.as"
 
-const string EMBED_drums = "artist/drums.ogg";
-const string EMBED_rest = "artist/rest.ogg";
+const string EMBED_filtered = "artist/filtered.ogg";
+const string EMBED_main = "artist/main.ogg";
 const string EMBED_splash = "artist/splash.ogg";
 const string EMBED_draw = "artist/draw.ogg";
 const string EMBED_erase = "artist/erase.ogg";
+const string EMBED_arp = "artist/arp.ogg";
+const string EMBED_arp_filtered = "artist/arp_filtered.ogg";
 
 const float BUTTON_SPACING = 20;
 const uint NUM_COLOR_BUTTONS = 32;
@@ -46,16 +48,30 @@ class script : callback_base{
   [hidden] bool levelEnded;
   //max volume of rest_song
   [hidden] float rest_song_vol;
-  //max volume of drum song
-  [hidden] float drum_song_vol;
+  //max volume of filtered song
+  [hidden] float filtered_song_vol;
+  //max volume of main song
+  [hidden] float main_song_vol;
+  //max volume of arp song
+  [hidden] float arp_song_vol;
+  //max volume of arp song filtered
+  [hidden] float arp_song_filtered_vol;
   //bool to dennote if we should be fading in or out the song
-  [hidden] bool doFadeIn = false;
+  [hidden] bool isDrawing = false;
   //speed we should fade the song in/out
   [text] int fadeSpeed;
   //frame counter for current fade
   [hidden] int currentFade;
-  audio@ drums_song;
+  [hidden] int currentFadeMain;
+  [hidden] int currentFadeFiltered;
+  [hidden] int currentFadeArp;
+  [hidden] int currentFadeArpFiltered;
+
+  audio@ filtered_song;
   audio@ rest_song;
+  audio@ main_song;
+  audio@ arp_song;
+  audio@ arp_song_filtered;
 
   array<Pixel@> drawing();
   uint code_index;
@@ -74,8 +90,13 @@ class script : callback_base{
     appleSpawned = false;
     fadeSpeed = 100;
     currentFade = 0;
-    rest_song_vol = .5;
-    drum_song_vol = .5;
+    currentFadeFiltered = 0;
+    currentFadeMain = 0;
+    rest_song_vol = .75;
+    filtered_song_vol = .75;
+    main_song_vol = .75;
+    arp_song_vol = .75;
+    arp_song_filtered_vol = .75;
     levelEnded = false;
   }
 
@@ -101,34 +122,49 @@ class script : callback_base{
   
   void end_level(string id, message@ msg) {
     if(msg.get_string('end_level') == 'true') { 
-      puts(custom_canvas.getNumColors()+""); 
       custom_canvas.disableDrawing();
       g.end_level(0,0);
       levelEnded = true;
     }
-  }
+  } 
 
   void on_level_start() {
     init_buttons();
     custom_canvas.init(pixelSize);
-    doFadeIn = false;
+    isDrawing = false;
     levelEnded = false;
-
     //Get previous persistent stream handles in case level was restarted to handle fading correctly
-    audio@ r = g.get_persistent_stream('rest');
-    audio@ d = g.get_persistent_stream('rest');
-
-    if(@r != null) {
-      @rest_song = r;
-      rest_song.volume(0);
+    audio@ m = g.get_persistent_stream('main');
+    audio@ f = g.get_persistent_stream('filtered');
+    audio@ r = g.get_persistent_stream('arp');
+    audio@ rf = g.get_persistent_stream('arp_filtered');
+    if(@m != null) {
+      @main_song = m;
+      main_song.volume(0);
     } else {
-      @rest_song = g.play_persistent_stream('rest', 1, true, 0, true);
+      @main_song = g.play_persistent_stream('main', 1, true, 0, true);
     }
 
-    if(@d != null) {
-      @drums_song = d;
+    if(@f != null) {
+      @filtered_song = f;
+      filtered_song.volume(filtered_song_vol);
     } else {
-      @drums_song = g.play_persistent_stream('drums', 1, true, drum_song_vol, true);
+      puts("filtered");
+      @filtered_song = g.play_persistent_stream('filtered', 1, true, filtered_song_vol, true);
+    }
+
+    if(@r != null) {
+      @arp_song = r;
+      arp_song.volume(0);
+    } else {
+      @arp_song = g.play_persistent_stream('arp', 1, true, 0, true);
+    }
+
+    if(@rf != null) {
+      @arp_song_filtered = rf;
+      arp_song_filtered.volume(0);
+    } else {
+      @arp_song_filtered = g.play_persistent_stream('arp_filtered', 1, true, 0, true);
     }
   }
 
@@ -145,31 +181,73 @@ class script : callback_base{
   }
 
   void build_sounds(message@ msg) {
-    msg.set_string("drums", "drums");
-    msg.set_string("rest", "rest");
+    msg.set_string("filtered", "filtered");
+    msg.set_int("filtered|loop", 59535);
+
+    msg.set_string("main", "main");
+    msg.set_int("main|loop", 59535);
+
+    msg.set_string("arp", "arp");
+    msg.set_int("arp|loop", 59535);
+
+    msg.set_string("arp_filtered", "arp_filtered");
+    msg.set_int("arp_filtered|loop", 59535);
+
     msg.set_string("splash", "splash");
     msg.set_string("draw", "draw");
     msg.set_string("erase", "erase");
+
+
   }
 
 
 
   void step(int) {
+    dustman@ dm;
+    if(@controller_entity(0) != null)
+      @dm = controller_entity(0).as_dustman();
+    else
+      return;
+
     ui.step();
     custom_canvas.updatePixelSize(pixelSize);
 
-    //fade in or out music. On level end, play both tracks
-    if(doFadeIn || levelEnded) {
-      fadeIn();
-    } else {
-      fadeOut();
+    dm.skill_combo(custom_canvas.getNumColors() * 13);
+    g.combo_break_count(8 - custom_canvas.getNumColors());
+
+    //SS Condition
+    if(custom_canvas.getNumColors() >= 8) {
+      g.combo_break_count(0);
+      if(isDrawing || levelEnded) {
+        fadeInArp();
+        fadeOutMain();
+        fadeOutFiltered();
+        fadeOutArpFiltered();
+      } else {
+        fadeInArpFiltered();
+        fadeOutMain();
+        fadeOutFiltered();
+        fadeOutArp();
+      }
+    } else { //No SS Condition
+      if(isDrawing || levelEnded) {
+        fadeInMain();
+        fadeOutFiltered();
+        fadeOutArpFiltered();
+        fadeOutArp();
+      } else {
+        fadeInFiltered();
+        fadeOutMain();
+        fadeOutArp();
+        fadeOutArpFiltered();
+      }
     }
 
     if(@totem != null && 
        totem.as_controllable().life() <= 0 &&
        @entity_by_id(apple) != null &&
        !appleSpawned) {
-      dustman@ dm = controller_entity(0).as_dustman();
+      
       entity_by_id(apple).set_xy(dm.x(), dm.y() - 400);
       appleSpawned = true;
     }
@@ -211,9 +289,9 @@ class script : callback_base{
 
     if(get_left_mouse_down(0)) {
       // Fade in if we are drawing
-      doFadeIn = custom_canvas.addPixels(mouse_x, mouse_y);
+      isDrawing = custom_canvas.addPixels(mouse_x, mouse_y);
     } else {
-      doFadeIn = false;
+      isDrawing = false;
     }
 
     if(right_mouse_down) {
@@ -223,12 +301,12 @@ class script : callback_base{
         cur_color = WHITE;
       }
       // Fade in if we are erasing
-      doFadeIn = custom_canvas.removePixels(mouse_x, mouse_y);
+      isDrawing = custom_canvas.removePixels(mouse_x, mouse_y);
     } else {
         if(temp_color != WHITE) {
           cur_color = temp_color;
           temp_color = WHITE;
-          doFadeIn = false;
+          isDrawing = false;
         }
       }
 
@@ -273,29 +351,119 @@ class script : callback_base{
   bool get_mouse_middle_down(int player) {
     return (g.mouse_state(player) & 0x10) == 0x10;
   }
-
-  void fadeIn() {
-    if(currentFade <= fadeSpeed) {
-      float t1 = currentFade;
+  
+  void fadeInArp() {
+    if(currentFadeArp <= fadeSpeed) {
+      float t1 = currentFadeArp;
       float t2 = fadeSpeed;
 
       //volume is % of current fade
-      rest_song.volume((t1/t2) * rest_song_vol);
+      arp_song.volume(divide(t1, t2) * arp_song_vol);
 
-      currentFade++;
+      currentFadeArp++;
+    }
+  }
+  
+  void fadeOutArp() {
+     if(arp_song.volume() < 0.4) {
+       arp_song.volume(0);
+     }
+     if(currentFadeArp > 0) {
+      float t1 = currentFadeArp;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      arp_song.volume(divide(t1, t2) * arp_song_vol);
+
+      currentFadeArp--;
     }
   }
 
-  void fadeOut() {
-     if(currentFade > 0) {
-      float t1 = currentFade;
+  void fadeInArpFiltered() {
+    if(currentFadeArpFiltered <= fadeSpeed) {
+      float t1 = currentFadeArpFiltered;
       float t2 = fadeSpeed;
 
       //volume is % of current fade
-      rest_song.volume((t1/t2) * rest_song_vol);
+      arp_song_filtered.volume(divide(t1, t2) * arp_song_filtered_vol);
 
-      currentFade--;
+      currentFadeArpFiltered++;
     }
+  }
+  
+  void fadeOutArpFiltered() {
+    if(arp_song_filtered.volume() < 0.4) {
+       arp_song_filtered.volume(0);
+     }
+     if(currentFadeArpFiltered > 0) {
+      float t1 = currentFadeArpFiltered;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      arp_song_filtered.volume(divide(t1, t2) * arp_song_filtered_vol);
+
+      currentFadeArpFiltered--;
+    }
+  }
+
+  void fadeOutMain() {
+    if(main_song.volume() < 0.4) {
+       main_song.volume(0);
+    }
+
+    if(currentFadeMain > 0) {
+      float t1 = currentFadeMain;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      main_song.volume(divide(t1, t2) * main_song_vol);
+
+      currentFadeMain--;
+    }
+  }
+
+  void fadeInMain() {
+    if(currentFadeMain <= fadeSpeed) {
+      float t1 = currentFadeMain;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      main_song.volume(divide(t1, t2) * main_song_vol);
+
+      currentFadeMain++;
+    }
+  }
+
+  void fadeInFiltered() {
+    if(currentFadeFiltered <= fadeSpeed) {
+      float t1 = currentFadeFiltered;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      filtered_song.volume(divide(t1, t2) * filtered_song_vol);
+
+      currentFadeFiltered++;
+    }
+  }
+
+  void fadeOutFiltered() {
+     if(filtered_song.volume() < 0.4) {
+       filtered_song.volume(0);
+     }
+
+     if(currentFadeFiltered > 0) {
+      float t1 = currentFadeFiltered;
+      float t2 = fadeSpeed;
+
+      //volume is % of current fade
+      filtered_song.volume(divide(t1, t2) * filtered_song_vol);
+
+      currentFadeFiltered--;
+    }
+  }
+
+  float divide(float f1, float f2) {
+    return f1/f2 < 0.06 ? 0 : f1/f2;
   }
 }
 
