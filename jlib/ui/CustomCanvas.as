@@ -101,11 +101,21 @@ class CustomCanvas {
    * Draws a rectangle under the mouse cursor
    */
   void drawBrush() {
+    //Width of black brush border
+    float edge_width = 1.5;
+
     g.draw_rectangle_world(17, 12,
     brushRect.x1,
     brushRect.y1,
     brushRect.x2,
     brushRect.y2,
+    0, BLACK);
+
+    g.draw_rectangle_world(17, 13,
+    brushRect.x1 + edge_width,
+    brushRect.y1 + edge_width,
+    brushRect.x2 - edge_width,
+    brushRect.y2 - edge_width,
     0, cur_color);
   }
 
@@ -119,8 +129,8 @@ class CustomCanvas {
   void updateBrushPos(float mouse_x, float mouse_y) {
     //Only draw if mouse is inside canvas
     if(insideCanvas(mouse_x, mouse_y)) {
-      float relX = abs(mouse_x - min(X1, X2));
-      float relY = abs(mouse_y - min(Y1, Y2));
+      float relX = abs(max(mouse_x, min(X1, X2)) - min(X1, X2));
+      float relY = abs(max(mouse_y, min(Y1, Y2)) - min(Y1, Y2));
       
       float numPixelsHorz = floor(relX / pixelSize);
       float numPixelsVert = floor(relY / pixelSize);
@@ -130,12 +140,26 @@ class CustomCanvas {
        float brushX2 = min(min(X1,X2) + uint(numPixelsHorz * pixelSize) + brush_width, max(X1, X2));
        float brushY1 = max(min(Y1,Y2) + uint(numPixelsVert * pixelSize), min(Y1, Y2));
        float brushY2 = min(min(Y1,Y2) + uint(numPixelsVert * pixelSize) + brush_width, max(Y1, Y2));
+      
+      // Both if statements here handle if we go off the left or top of canvas
+      if(mouse_x < min(X1, X2)) {
+       float relXTemp = abs(mouse_x - min(X1, X2));
+       brushX2 = min(min(X1,X2) + uint(numPixelsHorz * pixelSize) + brush_width, max(X1, X2)) - 
+        uint(floor(relXTemp / pixelSize) * pixelSize);
+
+      }
+
+      if(mouse_y < min(Y1, Y2)) {
+       float relYTemp = abs(mouse_y - min(Y1, Y2));
+       brushY2 = min(min(Y1,Y2) + uint(numPixelsVert * pixelSize) + brush_width, max(Y1, Y2)) - 
+        uint(floor(relYTemp / pixelSize) * pixelSize);
+      }
       brushRect.x1 = brushX1;
       brushRect.x2 = brushX2;
       brushRect.y1 = brushY1;
       brushRect.y2 = brushY2;
     } else {
-      //Set brue to have 0 area to make it not visible
+      //Set brush to have 0 area to make it not visible
       brushRect.x1 = 0;
       brushRect.x2 = 0;
       brushRect.y1 = 0;
@@ -150,9 +174,9 @@ class CustomCanvas {
   bool insideCanvas(float mouse_x, float mouse_y) {
     float mx = floor(mouse_x);
     float my = floor(mouse_y);
-
-    return (mx) <= max(X1, X2) && (mx) >= min(X1, X2) &&
-           (my) <= max(Y1, Y2) && (my) >= min(Y1, Y2);
+    //Allows mouse to go off top left of canvas
+    return (mx) <= max(X1, X2) && (mx) >= min(X1, X2)-brush_width &&
+           (my) <= max(Y1, Y2) && (my) >= min(Y1, Y2)-brush_width;
   }
 
   /*

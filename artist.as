@@ -18,7 +18,7 @@ const string EMBED_erase = "artist/erase.ogg";
 const string EMBED_arp = "artist/arp.ogg";
 const string EMBED_arp_filtered = "artist/arp_filtered.ogg";
 
-const float BUTTON_SPACING = 20;
+const float BUTTON_SPACING = 28;
 const uint NUM_COLOR_BUTTONS = 32;
 
 class script : callback_base{
@@ -92,10 +92,10 @@ class script : callback_base{
     currentFade = 0;
     currentFadeFiltered = 0;
     currentFadeMain = 0;
-    rest_song_vol = .75;
+    rest_song_vol = .50;
     filtered_song_vol = .75;
     main_song_vol = .75;
-    arp_song_vol = .75;
+    arp_song_vol = .50;
     arp_song_filtered_vol = .75;
     levelEnded = false;
   }
@@ -104,10 +104,18 @@ class script : callback_base{
     if(msg.get_string('color_change') == 'true') {  
       cur_color = msg.get_int("color");
     }
+
+    highlight_selected_button();
+  }
+
+  void highlight_selected_button() {
+    for(uint i = 0; i < color_buttons.size(); i++) {
+      color_buttons[i].selected = color_buttons[i].col == cur_color;
+    }
   }
 
   void clear_canvas(string id, message@ msg) {
-    if(msg.get_string('clear_canvas') == 'true') {  
+    if(msg.get_string('clear_canvas') == 'true' && !levelEnded) {  
       //Clear canvas
       dustman@ dm = controller_entity(0).as_dustman();
 
@@ -121,7 +129,7 @@ class script : callback_base{
   }
   
   void end_level(string id, message@ msg) {
-    if(msg.get_string('end_level') == 'true') { 
+    if(msg.get_string('end_level') == 'true' && !levelEnded) { 
       custom_canvas.disableDrawing();
       g.end_level(0,0);
       levelEnded = true;
@@ -131,6 +139,7 @@ class script : callback_base{
   void on_level_start() {
     init_buttons();
     custom_canvas.init(pixelSize);
+    highlight_selected_button();
     isDrawing = false;
     levelEnded = false;
     //Get previous persistent stream handles in case level was restarted to handle fading correctly
@@ -471,7 +480,7 @@ class script : callback_base{
  * Class used to make each color selection button
  */
 class ColorButton : ButtonClickHandler, callback_base {
-  private float BUTTON_HEIGHT = 34;
+  private float BUTTON_HEIGHT = 40;
   private float SIZE = 10;
   //Button
   UI@ ui;
@@ -480,6 +489,8 @@ class ColorButton : ButtonClickHandler, callback_base {
   Mouse@ mouse;
   Rect border;
   uint col;
+  float height;
+  bool selected;
 
   ColorButton(UI@ ui, uint color, float X1, float Y1) {
     @g = get_scene();
@@ -487,20 +498,34 @@ class ColorButton : ButtonClickHandler, callback_base {
     @this.ui = ui;
     @this.mouse = ui.mouse;
     border = Rect(X1, Y1, X1 + SIZE, Y1 + SIZE);
-    const float height = BUTTON_HEIGHT - ui.padding * 2;
+    height = BUTTON_HEIGHT - ui.padding * 2;
     @color_button = Button(ui, ColorSwab(ui, 5, color));
     color_button.fit_to_height(height);
     @color_button.click_listener = this;
+    selected = false;
   }
 
   void draw() {
     const float PADDING = ui.padding;
     Rect rect = border;
     rect.set(
-      rect.x1 - PADDING - color_button.width, rect.y1,
-      rect.x1 - PADDING, rect.y2);
+    rect.x1 - PADDING - color_button.width, rect.y1,
+    rect.x1 - PADDING, rect.y2+height/2);
+    
+    //If the current button is selected, we want to highlight it
+    if(selected) {
+      highlight_button(rect);
+    }
+
     color_button.draw(g, rect);
   }
+
+  //Draws highlight on button. Used only for if script wants to 
+  //Explicitly highlight button (on hover and on click are handled in button class)
+  void highlight_button(Rect rect) {
+    g.draw_rectangle_world(17, 20, rect.x1, rect.y1, rect.x2, rect.y2+5, 0, ui.highlight_colour | 0xFF000000);
+  }
+
 
   void on_button_click(Button@ button) {
     message@ msg = create_message();
