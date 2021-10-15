@@ -32,6 +32,15 @@ class LabelButton : ButtonClickHandler, callback_base {
     button.draw(g, rect);
   }
 
+  /*
+   * Returns the bounding rectangle of the button
+   */
+  Rect getRect() {
+    const float PADDING = ui.padding;
+    return Rect(border.x1 - PADDING - button.width, border.y1,
+      border.x1 - PADDING-1, border.y2+button.height-PADDING-5.5);
+  }
+
   void on_button_click(Button@ button) {
     message@ msg = create_message();
     msg.set_string(callback, "true");

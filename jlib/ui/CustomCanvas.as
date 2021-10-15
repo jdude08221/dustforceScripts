@@ -26,10 +26,12 @@ class CustomCanvas {
 
   [hidden] float brush_width;
   [hidden] Rect brushRect;
+  [hidden]array<Rect@> deadAreas;
   [hidden] uint cur_color;
   [hidden] bool drewLastFrame;
   [hidden] bool erasedLastFrame;
   [hidden] bool stopDrawing;
+  [hidden] bool hasDeadArea;
   dictionary colors;
   scene@ g;
 
@@ -41,6 +43,7 @@ class CustomCanvas {
     drewLastFrame = false;
     erasedLastFrame = false;
     stopDrawing = false;
+    hasDeadArea = false;
     for(uint i = 0; i < COLOR_LIST.size(); i++) {
       colors.set(""+COLOR_LIST[i], 0);
     }
@@ -184,6 +187,14 @@ class CustomCanvas {
     float mx = floor(mouse_x);
     float my = floor(mouse_y);
     float br = brush_width/2;
+    if(hasDeadArea) {
+      for(uint i = 0; i < deadAreas.size(); i++) {
+        Rect deadArea = deadAreas[i];
+        if(mx >= deadArea.x1 && mx <= deadArea.x2 && my >= deadArea.y1 && my <= deadArea.y2) {
+          return false;
+        }
+      }
+    }
     //Allows mouse to go off top left of canvas
     return (mx) <= max(X1, X2) + br && (mx) >= min(X1, X2)-br &&
            (my) < max(Y1, Y2) + br && (my) >= min(Y1, Y2)-br;
@@ -355,5 +366,15 @@ class CustomCanvas {
    */
   void disableDrawing() {
     stopDrawing = true;
+  }
+
+  /*
+  * Sets up a dead area where mouse shouldnt paint. Can be used to avoid 
+  * drawing when mouse is in certain areas. Takes a rectangle where mouse 
+  * should not be allowed to draw
+  */
+  void setDeadArea(Rect r) {
+    hasDeadArea = true;
+    deadAreas.insertLast(r);
   }
 }

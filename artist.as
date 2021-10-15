@@ -139,6 +139,12 @@ class script : callback_base{
   void on_level_start() {
     init_buttons();
     custom_canvas.init(pixelSize);
+
+    //Dont allow drawing when pressing other buttons
+    custom_canvas.setDeadArea(Rect(bX1-(BUTTON_SPACING + ui.padding)-2, bY1, (bX1+(BUTTON_SPACING + ui.padding) * 15) - 6, (bY1+(BUTTON_SPACING + ui.padding)*2) - 4));
+    custom_canvas.setDeadArea(clear_button.getRect());
+    custom_canvas.setDeadArea(end_button.getRect());
+
     highlight_selected_button();
     isDrawing = false;
     levelEnded = false;
@@ -511,7 +517,7 @@ class ColorButton : ButtonClickHandler, callback_base {
     rect.set(
     rect.x1 - PADDING - color_button.width, rect.y1,
     rect.x1 - PADDING, rect.y2+height/2);
-    
+
     //If the current button is selected, we want to highlight it
     if(selected) {
       highlight_button(rect);
@@ -522,8 +528,9 @@ class ColorButton : ButtonClickHandler, callback_base {
 
   //Draws highlight on button. Used only for if script wants to 
   //Explicitly highlight button (on hover and on click are handled in button class)
-  void highlight_button(Rect rect) {
-    g.draw_rectangle_world(17, 20, rect.x1, rect.y1, rect.x2, rect.y2+5, 0, ui.highlight_colour | 0xFF000000);
+  void highlight_button(Rect rect) {                            //magic sorry
+    g.draw_rectangle_world(17, 20, rect.x1, rect.y1, rect.x2, rect.y2+5, 0, 0xFFCC483c);
+    g.draw_rectangle_world(17, 21, rect.x1, rect.y1 + color_button.width, rect.x2 - color_button.width/2, (rect.y2+5) - color_button.width/2, 0, 0xFFCC483c);
   }
 
 
