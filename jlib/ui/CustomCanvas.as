@@ -128,13 +128,22 @@ class CustomCanvas {
    */
   void updateBrushPos(float mouse_x, float mouse_y) {
     //Only draw if mouse is inside canvas
+    float br = brush_width/2;
+
     if(insideCanvas(mouse_x, mouse_y)) {
-      float relX = abs(max(mouse_x, min(X1, X2)) - min(X1, X2));
-      float relY = abs(max(mouse_y, min(Y1, Y2)) - min(Y1, Y2));
+      float relX = 0;
+      float relY = 0;
+      if(brush_width > pixelSize) {
+        relX = max(mouse_x-br, min(X1, X2)) - min(X1, X2);
+        relY = max(mouse_y-br, min(Y1, Y2)) - min(Y1, Y2);
+      } else {
+        relX = abs(max(mouse_x, min(X1, X2)) - min(X1, X2));
+        relY = abs(max(mouse_y, min(Y1, Y2)) - min(Y1, Y2));
+      }
+      
       
       float numPixelsHorz = floor(relX / pixelSize);
       float numPixelsVert = floor(relY / pixelSize);
-      
       //Ensure brush stays inside canvas and tapers off as you move off the canvas
        float brushX1 = max(min(X1,X2) + uint(numPixelsHorz * pixelSize), min(X1, X2));
        float brushX2 = min(min(X1,X2) + uint(numPixelsHorz * pixelSize) + brush_width, max(X1, X2));
@@ -142,18 +151,18 @@ class CustomCanvas {
        float brushY2 = min(min(Y1,Y2) + uint(numPixelsVert * pixelSize) + brush_width, max(Y1, Y2));
       
       // Both if statements here handle if we go off the left or top of canvas
-      if(mouse_x < min(X1, X2)) {
-       float relXTemp = abs(mouse_x - min(X1, X2));
+      if(mouse_x - br < min(X1, X2)) {
+       float relXTemp = abs(mouse_x - br - min(X1, X2));
        brushX2 = min(min(X1,X2) + uint(numPixelsHorz * pixelSize) + brush_width, max(X1, X2)) - 
         uint(floor(relXTemp / pixelSize) * pixelSize);
-
       }
 
-      if(mouse_y < min(Y1, Y2)) {
-       float relYTemp = abs(mouse_y - min(Y1, Y2));
+      if(mouse_y - br < min(Y1, Y2)) {
+       float relYTemp = abs(mouse_y - br - min(Y1, Y2));
        brushY2 = min(min(Y1,Y2) + uint(numPixelsVert * pixelSize) + brush_width, max(Y1, Y2)) - 
         uint(floor(relYTemp / pixelSize) * pixelSize);
       }
+
       brushRect.x1 = brushX1;
       brushRect.x2 = brushX2;
       brushRect.y1 = brushY1;
@@ -174,9 +183,10 @@ class CustomCanvas {
   bool insideCanvas(float mouse_x, float mouse_y) {
     float mx = floor(mouse_x);
     float my = floor(mouse_y);
+    float br = brush_width/2;
     //Allows mouse to go off top left of canvas
-    return (mx) <= max(X1, X2) && (mx) >= min(X1, X2)-brush_width &&
-           (my) <= max(Y1, Y2) && (my) >= min(Y1, Y2)-brush_width;
+    return (mx) <= max(X1, X2) + br && (mx) >= min(X1, X2)-br &&
+           (my) < max(Y1, Y2) + br && (my) >= min(Y1, Y2)-br;
   }
 
   /*
