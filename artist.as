@@ -422,6 +422,10 @@ class script : callback_base{
   }
 
   void fadeOutMain() {
+    if(@main_song == null) {
+      return;
+    }
+
     if(main_song.volume() < 0.4) {
        main_song.volume(0);
     }

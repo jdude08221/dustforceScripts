@@ -189,7 +189,12 @@ class CustomCanvas {
     float br = brush_width/2;
     if(hasDeadArea) {
       for(uint i = 0; i < deadAreas.size(); i++) {
+        
+        if(@deadAreas[i] == null)
+          continue;
+
         Rect deadArea = deadAreas[i];
+
         if(mx >= deadArea.x1 && mx <= deadArea.x2 && my >= deadArea.y1 && my <= deadArea.y2) {
           return false;
         }
@@ -272,10 +277,16 @@ class CustomCanvas {
 
           if(@pixels[index_i][index_j] == null ||
             pixels[index_i][index_j].color != cur_color) {
+
+            if(@pixels[index_i][index_j] != null) {
+              Pixel@ cur = pixels[index_i][index_j];
+              if(uint(colors[""+cur.color]) > 0) {
+                colors[""+cur.color] = uint(colors[""+cur.color]) - 1;
+              }
+            }
             colors[""+d.color] = uint(colors[""+d.color]) + 1;
             drewLastFrame = true;
           }
-            
             pixels[index_i].removeAt(index_j);
             pixels[index_i].insertAt(index_j, d);
         }
