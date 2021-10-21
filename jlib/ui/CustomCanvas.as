@@ -166,6 +166,14 @@ class CustomCanvas {
         uint(floor(relYTemp / pixelSize) * pixelSize);
       }
 
+      //Crappy way to fix a bug where a rect with 0 width or height would be created
+      //on bottom and right edges... 
+      //TODO: fix bug
+      if (brushX1 == brushX2 || brushY1 == brushY2) {
+        brushX1 = brushX2 = brushY1 = brushY2 = 0;
+      }
+
+      
       brushRect.x1 = brushX1;
       brushRect.x2 = brushX2;
       brushRect.y1 = brushY1;
@@ -201,8 +209,8 @@ class CustomCanvas {
       }
     }
     //Allows mouse to go off top left of canvas
-    return (mx) <= max(X1, X2) + br && (mx) >= min(X1, X2)-br &&
-           (my) < max(Y1, Y2) + br && (my) >= min(Y1, Y2)-br;
+    return (mx) < max(X1, X2) + br && (mx) > min(X1, X2)-br &&
+           (my) < max(Y1, Y2) + br && (my) > min(Y1, Y2)-br;
   }
 
   /*
