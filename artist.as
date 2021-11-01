@@ -19,7 +19,7 @@ const string EMBED_arp = "artist/arp.ogg";
 const string EMBED_arp_filtered = "artist/arp_filtered.ogg";
 
 const float BUTTON_SPACING = 28;
-const uint NUM_COLOR_BUTTONS = 32;
+const uint NUM_COLOR_BUTTONS = 48;
 
 class script : callback_base{
   scene@ g;
@@ -146,7 +146,7 @@ class script : callback_base{
     custom_canvas.init(pixelSize);
 
     //Dont allow drawing when pressing other buttons
-    custom_canvas.setDeadArea(Rect(bX1-(BUTTON_SPACING + ui.padding)-2, bY1, (bX1+(BUTTON_SPACING + ui.padding) * 15) - 6, (bY1+(BUTTON_SPACING + ui.padding)*2) - 4));
+    custom_canvas.setDeadArea(Rect(bX1-(BUTTON_SPACING + ui.padding)-2, bY1, (bX1+(BUTTON_SPACING + ui.padding) * 15) - 6, (bY1+(BUTTON_SPACING + ui.padding)*3) - 4));
     custom_canvas.setDeadArea(clear_button.getRect());
     custom_canvas.setDeadArea(end_button.getRect());
 

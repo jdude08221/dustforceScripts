@@ -416,6 +416,10 @@ class CustomCanvas {
     uint y = uint(floor(relY/pixelSize));
     uint x = uint(floor(relX/pixelSize));
 
+    if(pixels[y][x].color == cur_color) {
+      return;
+    }
+
     uint fillPx = pixels[y][x].color;
     colors[""+fillPx] = uint(colors[""+fillPx]) - 1;
     pixels[y][x].color = cur_color;
