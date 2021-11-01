@@ -66,7 +66,9 @@ class script : callback_base{
   [hidden] int currentFadeFiltered;
   [hidden] int currentFadeArp;
   [hidden] int currentFadeArpFiltered;
-
+  [hidden] bool leftMousePressed;
+  [hidden] bool middle_mouse_down;
+  [hidden] bool filling;
   audio@ filtered_song;
   audio@ rest_song;
   audio@ main_song;
@@ -98,6 +100,9 @@ class script : callback_base{
     arp_song_vol = .50;
     arp_song_filtered_vol = .75;
     levelEnded = false;
+    leftMousePressed = false;
+    middle_mouse_down = false;
+    filling = false;
   }
 
   void update_color(string id, message@ msg) {
@@ -211,8 +216,6 @@ class script : callback_base{
     msg.set_string("splash", "splash");
     msg.set_string("draw", "draw");
     msg.set_string("erase", "erase");
-
-
   }
 
 
@@ -223,8 +226,14 @@ class script : callback_base{
       @dm = controller_entity(0).as_dustman();
     else
       return;
+    step_ui();
 
+    float mouse_x = g.mouse_x_world(0, 18);
+    float mouse_y = g.mouse_y_world(0, 18);
+    
+    custom_canvas.step(mouse_x, mouse_y, cur_color);
     ui.step();
+
     custom_canvas.updatePixelSize(pixelSize);
 
     dm.skill_combo(custom_canvas.getNumColors() * 13);
@@ -269,9 +278,11 @@ class script : callback_base{
     if(@controller_entity(0) == null) {
       return;
     }
-
+    
     //handle mouse inputs
     right_mouse_down = get_right_mouse_down(0);
+    leftMousePressed = get_left_mouse_down(0);
+    middle_mouse_down = get_mouse_middle_down(0);
 
     if(get_mouse_scroll_down(0)) {
       if(brush_width >= pixelSize && brush_width - pixelSize >= 5) {
@@ -284,31 +295,14 @@ class script : callback_base{
         custom_canvas.updateBrushWidth(brush_width);
       }
     }
-  }
 
-  void update_ui() {
-    for(uint i = 0; i < color_buttons.size(); i++) {
-      color_buttons[i].draw();
-    }
-    clear_button.draw();
-    end_button.draw();
-  }
-
-  void draw(float sub_frame) {
-    update_ui();
-    float mouse_x = g.mouse_x_world(0, 18);
-    float mouse_y = g.mouse_y_world(0, 18);
-    custom_canvas.draw(mouse_x, 
-                      mouse_y,  
-                      cur_color);
-
-    if(get_left_mouse_down(0)) {
+    if(leftMousePressed) {
       // Fade in if we are drawing
-      isDrawing = custom_canvas.addPixels(mouse_x, mouse_y);
+      isDrawing = custom_canvas.addPixels();
     } else {
       isDrawing = false;
-    }
-
+    } 
+    
     if(right_mouse_down) {
       //Set the brush color to white while erasing
       if(cur_color != WHITE) {
@@ -316,14 +310,25 @@ class script : callback_base{
         cur_color = WHITE;
       }
       // Fade in if we are erasing
-      isDrawing = custom_canvas.removePixels(mouse_x, mouse_y);
+      isDrawing = custom_canvas.removePixels();
     } else {
         if(temp_color != WHITE) {
           cur_color = temp_color;
           temp_color = WHITE;
           isDrawing = false;
         }
+    } 
+    
+    if (middle_mouse_down) {
+      if(!filling) {
+        filling = true;
+        custom_canvas.fill(@custom_canvas.cur_pixel);
       }
+    } else {
+      filling = false;
+    }
+
+
 
     if(custom_canvas.drewLastFrame) {
       g.play_script_stream("draw", 2, 0, 0, false, .85);
@@ -335,9 +340,30 @@ class script : callback_base{
     }
   }
 
+  void draw_ui() {
+    for(uint i = 0; i < color_buttons.size(); i++) {
+      color_buttons[i].draw();
+    }
+    clear_button.draw();
+    end_button.draw();
+  }
+
+  void step_ui() {
+    for(uint i = 0; i < color_buttons.size(); i++) {
+      color_buttons[i].step();
+    }
+    clear_button.step();
+    end_button.step();
+  }
+
+  void draw(float sub_frame) {
+    draw_ui();
+    custom_canvas.draw();
+  }
+
   void editor_draw(float sub_frame) {
     //draw canvas and buttons
-    update_ui();
+    draw_ui();
     custom_canvas.drawCanvas();
   }
 
@@ -516,18 +542,27 @@ class ColorButton : ButtonClickHandler, callback_base {
   }
 
   void draw() {
-    const float PADDING = ui.padding;
-    Rect rect = border;
-    rect.set(
-    rect.x1 - PADDING - color_button.width, rect.y1,
-    rect.x1 - PADDING, rect.y2+height/2);
-
+    Rect rect = getButtonRect();
     //If the current button is selected, we want to highlight it
     if(selected) {
       highlight_button(rect);
     }
 
     color_button.draw(g, rect);
+  }
+
+  void step() {
+    color_button.update(g, getButtonRect());
+  }
+
+  Rect getButtonRect() {
+    const float PADDING = ui.padding;
+    Rect rect = border;
+    rect.set(
+    rect.x1 - PADDING - color_button.width, rect.y1,
+    rect.x1 - PADDING, rect.y2+height/2);
+
+    return rect;
   }
 
   //Draws highlight on button. Used only for if script wants to 
