@@ -26,7 +26,7 @@ class CustomCanvas {
 
   [hidden] float brush_width;
   [hidden] Rect brushRect;
-  [hidden]array<Rect@> deadAreas;
+  [hidden] array<Rect@> deadAreas;
   [hidden] uint cur_color;
   [hidden] bool drewLastFrame;
   [hidden] bool erasedLastFrame;
@@ -35,6 +35,7 @@ class CustomCanvas {
   [hidden] bool inCanvas;
   
   [hidden] Pixel@ cur_pixel;
+  [hidden] uint common_color;
   dictionary colors;
   scene@ g;
 
@@ -52,6 +53,7 @@ class CustomCanvas {
       colors.set(""+COLOR_LIST[i], 0);
     }
     @cur_pixel = Pixel(Rect(0,0,0,0), WHITE);
+    common_color = WHITE;
   }
 
   /*
@@ -78,21 +80,21 @@ class CustomCanvas {
     //Update canvas resolution
     height = abs(Y1 - Y2);
     width = abs(X1 - X2);
-    uint i, j;
-    i = j = 0;
+
     //fill pixels matrix with empty pixels
-    for(i = 0; i < uint(height); i += uint(pixelSize)) {
+    for(uint i = 0; i < uint(height); i += uint(pixelSize)) {
       array<Pixel@>row;
-      for(j = 0; j < uint(width); j += uint(pixelSize)) {
+      for(uint j = 0; j < uint(width); j += uint(pixelSize)) {
         row.insertLast(Pixel(Rect(j+X1,i+Y1,j+X1+pixelSize,i+Y1+pixelSize), WHITE));
       }
       pixels.insertLast(row);
     }
+    colors[""+WHITE] = uint(colors[""+WHITE]) + pixels.size() * pixels[0].size();
   }
   
   /*Used to draw the plain white canvas only*/
   void drawCanvas() {
-    g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, WHITE);
+    g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, common_color);
   }
 
   /* 
@@ -204,7 +206,7 @@ class CustomCanvas {
       brushRect.y2 = 0;
     }
 
-
+      //TODO: find way to not duplicate code for calculating the one pixel cur pixel
       brushX1 = max(min(X1,X2) + uint(numPixelsHorz * pixelSize), min(X1, X2));
       brushX2 = min(min(X1,X2) + uint(numPixelsHorz * pixelSize) + pixelSize, max(X1, X2));
       brushY1 = max(min(Y1,Y2) + uint(numPixelsVert * pixelSize), min(Y1, Y2));
@@ -344,6 +346,11 @@ class CustomCanvas {
               }
             }
             colors[""+d.color] = uint(colors[""+d.color]) + 1;
+
+            if(uint(colors[""+common_color]) < uint(colors[""+d.color])) {
+              common_color = d.color;
+            }
+
             drewLastFrame = true;
           }
             pixels[index_i].removeAt(index_j);
@@ -386,6 +393,9 @@ class CustomCanvas {
             }
           }
           Pixel@ d = Pixel(Rect(pixelX1, pixelY1, pixelX1 + pixelSize, pixelY1 + pixelSize), WHITE);
+          if(uint(colors[""+common_color]) < uint(colors[""+d.color])) {
+            common_color = d.color;
+          }
           pixels[index_i].removeAt(index_j);
           pixels[index_i].insertAt(index_j, d);
         }
@@ -407,7 +417,14 @@ class CustomCanvas {
     uint x = uint(floor(relX/pixelSize));
 
     uint fillPx = pixels[y][x].color;
+    colors[""+fillPx] = uint(colors[""+fillPx]) - 1;
     pixels[y][x].color = cur_color;
+    colors[""+cur_color] = uint(colors[""+cur_color]) + 1;
+
+    if(uint(colors[""+common_color]) < uint(colors[""+cur_color])) {
+      common_color = cur_color;
+    }
+    
     //top
     if(y > 0) {
       //check top
@@ -437,8 +454,6 @@ class CustomCanvas {
         fill(@pixels[y][x - 1]);
       }
     }
-
-    
   }
   
 
@@ -448,7 +463,7 @@ class CustomCanvas {
   void drawPixels() {
     for(uint i = 0; i < pixels.size(); i++) {
       for(uint j = 0; j < pixels[i].size(); j++) {
-        if(pixels[i][j].color != WHITE) {
+        if(pixels[i][j].color != common_color) {
           g.draw_rectangle_world(17, 11,
           pixels[i][j].rect.x1,
           pixels[i][j].rect.y1,
