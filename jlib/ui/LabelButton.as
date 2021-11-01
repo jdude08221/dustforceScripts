@@ -24,12 +24,21 @@ class LabelButton : ButtonClickHandler, callback_base {
   }
 
   void draw() {
+    button.draw(g, getRect());
+  }
+
+  void step() {
+    button.update(g, getRect());
+  }
+
+  Rect@ getButtonRect() {
     const float PADDING = ui.padding;
     Rect rect = border;
     rect.set(
       rect.x1 - PADDING - button.width, rect.y1,
       rect.x1 - PADDING, rect.y2);
-    button.draw(g, rect);
+
+    return rect;
   }
 
   /*
