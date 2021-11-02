@@ -170,9 +170,9 @@ class script : callback_base{
     if(frame_buttons.size() > 0) {
       //Get previous button's rect
       Rect r = frame_buttons[frame_buttons.size()-1].border;
-
-      float x1 = r.x1;
-      float y1 = r.y1 + (BUTTON_SPACING + ui.padding);
+      Rect r0 = frame_buttons[0].border;
+      float x1 = r0.x1 + ((BUTTON_SPACING + ui.padding) * ((frame_buttons.size()-2) / 26));
+      float y1 = r0.y1 + ((BUTTON_SPACING + ui.padding) * (((frame_buttons.size()-2) % 26) + 1));
 
       frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 2, false));
     }
@@ -233,7 +233,6 @@ class script : callback_base{
           //Highlight selected frame
           Rect r = frame_buttons[i].border;
           r.x1 += (BUTTON_SPACING + ui.padding);
-          frame_buttons[1].border = r;
           frame_buttons[i].selected = true;
           if(i > 2 && !animate) {
             //Have preview transperency on previous frame

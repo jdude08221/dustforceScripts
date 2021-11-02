@@ -118,7 +118,8 @@ class CustomCanvas {
   void drawCanvas(bool preview) {
     if(@g == null)
       @g = get_scene();
-    g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, preview ? ((common_color & 0x00FFFFFF) | TRANSPARENCY): common_color);
+      g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, 
+      preview ? ((common_color & 0x00FFFFFF) | TRANSPARENCY): common_color);
   }
 
   /* 
@@ -499,7 +500,7 @@ class CustomCanvas {
         if(pixels[i][j].color != common_color) {
           uint color = preview ? ((pixels[i][j].color & 0x00FFFFFF) | TRANSPARENCY) 
            : pixels[i][j].color;
-          uint sublayer = preview ? 11 : 12;
+          uint sublayer = preview ? 12 : 11;
           g.draw_rectangle_world(17, sublayer,
           pixels[i][j].rect.x1,
           pixels[i][j].rect.y1,
