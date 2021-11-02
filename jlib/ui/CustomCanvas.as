@@ -10,7 +10,7 @@
  * 4. drawCanvas() can be used inside editorDraw() to draw a canvas 
  *    preview in the editor
  */
- const uint TRANSPARENCY = 0xAA000000;
+ const uint TRANSPARENCY = 0x40000000;
 
 class CustomCanvas {
   float x1, x2, y1, y2;
@@ -499,7 +499,8 @@ class CustomCanvas {
         if(pixels[i][j].color != common_color) {
           uint color = preview ? ((pixels[i][j].color & 0x00FFFFFF) | TRANSPARENCY) 
            : pixels[i][j].color;
-          g.draw_rectangle_world(17, 12,
+          uint sublayer = preview ? 11 : 12;
+          g.draw_rectangle_world(17, sublayer,
           pixels[i][j].rect.x1,
           pixels[i][j].rect.y1,
           pixels[i][j].rect.x2,

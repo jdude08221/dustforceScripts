@@ -49,7 +49,7 @@ class script : callback_base{
   [hidden] float pbY1;
   [text] float brush_width;
   [hidden] array<ColorButton@> color_buttons(NUM_COLOR_BUTTONS);
-  array<FrameButton@> frame_buttons(1);
+  array<FrameButton@> frame_buttons(2);
   [hidden]LabelButton @clear_button;
   [hidden]LabelButton @end_button;
   [hidden]LabelButton @play_button;
@@ -82,7 +82,7 @@ class script : callback_base{
 
   bool animate;
   uint frame;
-
+  uint animationFrame;
   audio@ filtered_song;
   audio@ rest_song;
   audio@ main_song;
@@ -103,6 +103,7 @@ class script : callback_base{
     add_broadcast_receiver('clear_canvas', this, 'clear_canvas');
     add_broadcast_receiver('end_level', this, 'end_level');
     add_broadcast_receiver('add_canvas', this, 'add_canvas');
+    add_broadcast_receiver('remove_canvas', this, 'remove_canvas');
     add_broadcast_receiver('set_canvas_index', this, 'set_canvas_index');
     add_broadcast_receiver('play_animation', this, 'play_animation');
     
@@ -124,6 +125,7 @@ class script : callback_base{
     curCanvas = 0;
     animate = false;
     frame = 0;
+    animationFrame = 0;
     framerate = 10;
   }
 
@@ -164,7 +166,7 @@ class script : callback_base{
   } 
 
   void add_canvas(string id, message@ msg) {
-    addCanvas(frame_buttons.size()-1);
+    addCanvas(frame_buttons.size()-2);
     if(frame_buttons.size() > 0) {
       //Get previous button's rect
       Rect r = frame_buttons[frame_buttons.size()-1].border;
@@ -172,9 +174,35 @@ class script : callback_base{
       float x1 = r.x1;
       float y1 = r.y1 + (BUTTON_SPACING + ui.padding);
 
-      frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 1, false));
+      frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 2, false));
     }
     updateDeadAreas();
+  }
+
+  void remove_canvas(string id, message@ msg) {
+    //Only remove canvas if there is more than 1
+    puts("remove "+custom_canvases.size());
+    if(custom_canvases.size() > 1) {
+      removeCanvas(curCanvas);
+
+      for(uint i = frame_buttons.size()-1; i > curCanvas + 1; i--) {
+        Rect r = frame_buttons[i-1].border;
+        frame_buttons[i].border = r;
+        //Subtract one off the label
+        uint label = parseUInt(cast<Label>(frame_buttons[i].frame_button.icon).text);
+        cast<Label>(frame_buttons[i].frame_button.icon).text = (label - 1) + "";
+
+        //The index should match the new label we are setting the button as
+        frame_buttons[i].frame_index = label - 1;
+      }
+
+      curCanvas = curCanvas > 0 ? curCanvas - 1 : 0;
+      //remove button
+      frame_buttons.removeAt(curCanvas+2);
+      updateDeadAreas();
+
+      changeCanvas(curCanvas);
+    }
   }
 
   void play_animation(string id, message@ msg) {
@@ -188,6 +216,7 @@ class script : callback_base{
   
   void changeCanvas(uint idx) {
     if(idx < custom_canvases.size()) {
+      puts("change");
       curCanvas = idx;
       //Save current brush size to pass to new canvas
       float bw = cur_canvas.brush_width;
@@ -195,6 +224,25 @@ class script : callback_base{
 
       //Set new canvas brush size
       cur_canvas.brush_width = bw;
+
+      for(uint i = 2; i < frame_buttons.size(); i++) {
+        //Reset all button's preview attribute to false
+        frame_buttons[i].preview = false;
+
+        if(frame_buttons[i].frame_index == curCanvas) {
+          //Highlight selected frame
+          Rect r = frame_buttons[i].border;
+          r.x1 += (BUTTON_SPACING + ui.padding);
+          frame_buttons[1].border = r;
+          frame_buttons[i].selected = true;
+          if(i > 2 && !animate) {
+            //Have preview transperency on previous frame
+            frame_buttons[i - 1].preview = true;
+            frame_buttons[i - 1].selected = true;
+          }
+        }
+        frame_buttons[i].selected = frame_buttons[i].frame_index == curCanvas;
+      }
     }
   }
 
@@ -239,12 +287,12 @@ class script : callback_base{
     
     if(frame_buttons.size() > 0) {
       //Get previous button's rect
-      Rect r = frame_buttons[frame_buttons.size()-1].border;
+      Rect r = frame_buttons[frame_buttons.size()-2].border;
 
       float x1 = r.x1;
       float y1 = r.y1 + (BUTTON_SPACING + ui.padding);
 
-      frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 1, false));
+      frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 2, false));
     }
     
     highlight_selected_button();
@@ -287,7 +335,7 @@ class script : callback_base{
 
   void init_buttons() {
     @frame_buttons[0] = FrameButton(ui, fbX1, fbY1, 0, true);
-    
+    @frame_buttons[1] = FrameButton(ui, fbX1 + BUTTON_SPACING + ui.padding, fbY1, 0, false, true);
     for(uint i = 0; i < color_buttons.size(); i++) {
       //Set up each color button. Each row of colors is 16 long
       @color_buttons[i] = ColorButton(ui, COLOR_LIST[i], 
@@ -441,9 +489,15 @@ class script : callback_base{
     //Animate
     if(animate) {
       if(frame % framerate == 0) {
-        changeCanvas(frame % custom_canvases.size());
+        changeCanvas(animationFrame % custom_canvases.size());
+        animationFrame++;
       }
     } else {
+      if(animationFrame != 0) {
+        //Change canvas to the current canvas to refresh highlighting on buttons
+        changeCanvas(curCanvas);
+      }
+      animationFrame = 0;
       frame = 0;
     }
     frame++;
@@ -721,8 +775,10 @@ class FrameButton : ButtonClickHandler, callback_base {
   bool selected;
   uint frame_index;
   bool add_canvas;
+  bool remove_canvas;
+  bool preview;
 
-  FrameButton(UI@ ui, float X1, float Y1, uint idx = 0, bool addCanvas = false) {
+  FrameButton(UI@ ui, float X1, float Y1, uint idx = 0, bool addCanvas = false, bool removeCanvas = false) {
     @g = get_scene();
     @this.ui = ui;
     @this.mouse = ui.mouse;
@@ -730,6 +786,8 @@ class FrameButton : ButtonClickHandler, callback_base {
     height = BUTTON_HEIGHT - ui.padding * 2;
     if(addCanvas) {
       @frame_button = Button(ui, Label(ui, "+", false));
+    } else if(removeCanvas) {
+      @frame_button = Button(ui, Label(ui, "-", false));
     } else {
       @frame_button = Button(ui, Label(ui, idx+"", false));
     }
@@ -738,6 +796,8 @@ class FrameButton : ButtonClickHandler, callback_base {
     selected = false;
     frame_index = idx;
     add_canvas = addCanvas;
+    remove_canvas = removeCanvas;
+    preview = false;
   }
 
   void draw() {
@@ -767,8 +827,8 @@ class FrameButton : ButtonClickHandler, callback_base {
   //Draws highlight on button. Used only for if script wants to 
   //Explicitly highlight button (on hover and on click are handled in button class)
   void highlight_button(Rect rect) {                            //magic sorry
-    g.draw_rectangle_world(17, 20, rect.x1, rect.y1, rect.x2, rect.y2+5, 0, 0xFFCC483c);
-    g.draw_rectangle_world(17, 21, rect.x1, rect.y1 + frame_button.width, rect.x2 - frame_button.width/2, (rect.y2+5) - frame_button.width/2, 0, 0xFFCC483c);
+    g.draw_rectangle_world(17, 19, rect.x1, 
+    rect.y1, rect.x2, rect.y2+5, 0, preview ? TRANSPARENCY | (0x00FFFFFF & 0xFFCC483c) : 0xFFCC483c);
   }
 
 
@@ -777,6 +837,12 @@ class FrameButton : ButtonClickHandler, callback_base {
       message@ msg = create_message();
       msg.set_string('add_canvas', "true");
       broadcast_message('add_canvas', msg); 
+      //TODO: add sound effect?
+      g.play_script_stream("splash", 2, 0, 0, false, 10);
+    } else if(remove_canvas) {
+      message@ msg = create_message();
+      msg.set_string('remove_canvas', "true");
+      broadcast_message('remove_canvas', msg); 
       //TODO: add sound effect?
       g.play_script_stream("splash", 2, 0, 0, false, 10);
     } else {
