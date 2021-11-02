@@ -31,7 +31,11 @@ class script : callback_base{
   entity@ totem;
   bool right_mouse_down;
   [hidden] uint numPlayers;
+  [text] uint framerate;
   [text]CustomCanvas custom_canvas;
+  CustomCanvas@ cur_canvas;
+  array<CustomCanvas@> custom_canvases;
+  [hidden]uint curCanvas;
   [text] float pixelSize;
   [position,mode:world,layer:18,y:bY1] float bX1;
   [hidden] float bY1;
@@ -39,10 +43,16 @@ class script : callback_base{
   [hidden] float cbY1;
   [position,mode:world,layer:18,y:ebY1] float ebX1;
   [hidden] float ebY1;
+  [position,mode:world,layer:18,y:fbY1] float fbX1;
+  [hidden] float fbY1;
+  [position,mode:world,layer:18,y:pbY1] float pbX1;
+  [hidden] float pbY1;
   [text] float brush_width;
   [hidden] array<ColorButton@> color_buttons(NUM_COLOR_BUTTONS);
+  array<FrameButton@> frame_buttons(1);
   [hidden]LabelButton @clear_button;
   [hidden]LabelButton @end_button;
+  [hidden]LabelButton @play_button;
   [entity] int apple;
   [hidden] bool appleSpawned;
   [hidden] bool levelEnded;
@@ -69,6 +79,10 @@ class script : callback_base{
   [hidden] bool leftMousePressed;
   [hidden] bool middle_mouse_down;
   [hidden] bool filling;
+
+  bool animate;
+  uint frame;
+
   audio@ filtered_song;
   audio@ rest_song;
   audio@ main_song;
@@ -88,6 +102,10 @@ class script : callback_base{
     add_broadcast_receiver('color_picked', this, 'update_color');
     add_broadcast_receiver('clear_canvas', this, 'clear_canvas');
     add_broadcast_receiver('end_level', this, 'end_level');
+    add_broadcast_receiver('add_canvas', this, 'add_canvas');
+    add_broadcast_receiver('set_canvas_index', this, 'set_canvas_index');
+    add_broadcast_receiver('play_animation', this, 'play_animation');
+    
     right_mouse_down = false;
     appleSpawned = false;
     fadeSpeed = 100;
@@ -103,6 +121,10 @@ class script : callback_base{
     leftMousePressed = false;
     middle_mouse_down = false;
     filling = false;
+    curCanvas = 0;
+    animate = false;
+    frame = 0;
+    framerate = 10;
   }
 
   void update_color(string id, message@ msg) {
@@ -135,21 +157,96 @@ class script : callback_base{
   
   void end_level(string id, message@ msg) {
     if(msg.get_string('end_level') == 'true' && !levelEnded) { 
-      custom_canvas.disableDrawing();
+      cur_canvas.disableDrawing();
       g.end_level(0,0);
       levelEnded = true;
     }
   } 
 
+  void add_canvas(string id, message@ msg) {
+    addCanvas(frame_buttons.size()-1);
+    if(frame_buttons.size() > 0) {
+      //Get previous button's rect
+      Rect r = frame_buttons[frame_buttons.size()-1].border;
+
+      float x1 = r.x1;
+      float y1 = r.y1 + (BUTTON_SPACING + ui.padding);
+
+      frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 1, false));
+    }
+    updateDeadAreas();
+  }
+
+  void play_animation(string id, message@ msg) {
+    animate = !animate;
+  }
+
+  void set_canvas_index(string id, message@ msg) {
+    changeCanvas(msg.get_int("index"));
+  }
+
+  
+  void changeCanvas(uint idx) {
+    if(idx < custom_canvases.size()) {
+      curCanvas = idx;
+      //Save current brush size to pass to new canvas
+      float bw = cur_canvas.brush_width;
+      @cur_canvas = custom_canvases[idx];
+
+      //Set new canvas brush size
+      cur_canvas.brush_width = bw;
+    }
+  }
+
+  void updateDeadAreas() {
+    for(uint i = 0; i < custom_canvases.size(); i++) {
+      Rect r = frame_buttons[0].getButtonRect();
+      custom_canvases[i].setDeadArea(Rect(r.x1-2, r.y1, r.x2, abs(r.y2 - r.y1)*frame_buttons.size()));
+    }
+  }
+
+  void addCanvas(uint idx) {
+    CustomCanvas@ c = CustomCanvas(custom_canvas.X1, custom_canvas.Y1, custom_canvas.X2, custom_canvas.Y2);
+
+    c.init(pixelSize);
+    //Dont allow drawing when pressing other buttons
+    c.setDeadArea(Rect(bX1-(BUTTON_SPACING + ui.padding)-2, bY1, (bX1+(BUTTON_SPACING + ui.padding) * 15) - 6, (bY1+(BUTTON_SPACING + ui.padding)*3) - 4));
+    c.setDeadArea(clear_button.getRect());
+    c.setDeadArea(end_button.getRect());
+    c.setDeadArea(play_button.getRect());
+
+    custom_canvases.insertAt(idx, c);
+  }
+
+  void removeCanvas(uint idx) {
+    if(idx < custom_canvases.size()) {
+      custom_canvases.removeAt(idx);
+    }
+  }
+
   void on_level_start() {
+    custom_canvases.insertLast(custom_canvas);
     init_buttons();
-    custom_canvas.init(pixelSize);
+    custom_canvases[0].init(pixelSize);
 
     //Dont allow drawing when pressing other buttons
-    custom_canvas.setDeadArea(Rect(bX1-(BUTTON_SPACING + ui.padding)-2, bY1, (bX1+(BUTTON_SPACING + ui.padding) * 15) - 6, (bY1+(BUTTON_SPACING + ui.padding)*3) - 4));
-    custom_canvas.setDeadArea(clear_button.getRect());
-    custom_canvas.setDeadArea(end_button.getRect());
+    custom_canvases[0].setDeadArea(Rect(bX1-(BUTTON_SPACING + ui.padding)-2, bY1, (bX1+(BUTTON_SPACING + ui.padding) * 15) - 6, (bY1+(BUTTON_SPACING + ui.padding)*3) - 4));
+    custom_canvases[0].setDeadArea(clear_button.getRect());
+    custom_canvases[0].setDeadArea(end_button.getRect());
+    custom_canvases[0].setDeadArea(play_button.getRect());
+    
+    @cur_canvas = custom_canvases[0];
+    
+    if(frame_buttons.size() > 0) {
+      //Get previous button's rect
+      Rect r = frame_buttons[frame_buttons.size()-1].border;
 
+      float x1 = r.x1;
+      float y1 = r.y1 + (BUTTON_SPACING + ui.padding);
+
+      frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 1, false));
+    }
+    
     highlight_selected_button();
     isDrawing = false;
     levelEnded = false;
@@ -169,7 +266,6 @@ class script : callback_base{
       @filtered_song = f;
       filtered_song.volume(filtered_song_vol);
     } else {
-      puts("filtered");
       @filtered_song = g.play_persistent_stream('filtered', 1, true, filtered_song_vol, true);
     }
 
@@ -186,16 +282,19 @@ class script : callback_base{
     } else {
       @arp_song_filtered = g.play_persistent_stream('arp_filtered', 1, true, 0, true);
     }
+    updateDeadAreas();
   }
 
   void init_buttons() {
+    @frame_buttons[0] = FrameButton(ui, fbX1, fbY1, 0, true);
+    
     for(uint i = 0; i < color_buttons.size(); i++) {
       //Set up each color button. Each row of colors is 16 long
       @color_buttons[i] = ColorButton(ui, COLOR_LIST[i], 
       bX1 + (BUTTON_SPACING + ui.padding) * (i % 16), 
       bY1 + (BUTTON_SPACING + ui.padding) * (i/16));
     }
-    
+    @play_button = LabelButton(ui, pbX1, pbY1, "play_animation", "Play!");
     @clear_button  = LabelButton(ui, cbX1, cbY1, "clear_canvas", "Clear");
     @end_button  = LabelButton(ui, ebX1, cbY1, "end_level", "Done!");
   }
@@ -231,16 +330,16 @@ class script : callback_base{
     float mouse_x = g.mouse_x_world(0, 18);
     float mouse_y = g.mouse_y_world(0, 18);
     
-    custom_canvas.step(mouse_x, mouse_y, cur_color);
+    cur_canvas.step(mouse_x, mouse_y, cur_color);
     ui.step();
 
-    custom_canvas.updatePixelSize(pixelSize);
+    cur_canvas.updatePixelSize(pixelSize);
 
-    dm.skill_combo(custom_canvas.getNumColors() * 13);
-    g.combo_break_count(8 - custom_canvas.getNumColors());
+    dm.skill_combo(cur_canvas.getNumColors() * 13);
+    g.combo_break_count(8 - cur_canvas.getNumColors());
 
     //SS Condition
-    if(custom_canvas.getNumColors() >= 8) {
+    if(cur_canvas.getNumColors() >= 8) {
       g.combo_break_count(0);
       if(isDrawing || levelEnded) {
         fadeInArp();
@@ -287,18 +386,18 @@ class script : callback_base{
     if(get_mouse_scroll_down(0)) {
       if(brush_width >= pixelSize && brush_width - pixelSize >= 5) {
         brush_width-=pixelSize;
-        custom_canvas.updateBrushWidth(brush_width);
+        cur_canvas.updateBrushWidth(brush_width);
       }
     } else if(get_mouse_scroll_up(0)) {
-      if(brush_width < max(custom_canvas.width, custom_canvas.height)){
+      if(brush_width < max(cur_canvas.width, cur_canvas.height)){
         brush_width+=pixelSize;
-        custom_canvas.updateBrushWidth(brush_width);
+        cur_canvas.updateBrushWidth(brush_width);
       }
     }
 
     if(leftMousePressed) {
       // Fade in if we are drawing
-      isDrawing = custom_canvas.addPixels();
+      isDrawing = cur_canvas.addPixels();
     } else {
       isDrawing = false;
     } 
@@ -310,7 +409,7 @@ class script : callback_base{
         cur_color = WHITE;
       }
       // Fade in if we are erasing
-      isDrawing = custom_canvas.removePixels();
+      isDrawing = cur_canvas.removePixels();
     } else {
         if(temp_color != WHITE) {
           cur_color = temp_color;
@@ -322,7 +421,7 @@ class script : callback_base{
     if (middle_mouse_down) {
       if(!filling) {
         filling = true;
-        custom_canvas.fill(@custom_canvas.cur_pixel);
+        cur_canvas.fill(@cur_canvas.cur_pixel);
       }
     } else {
       filling = false;
@@ -330,41 +429,64 @@ class script : callback_base{
 
 
 
-    if(custom_canvas.drewLastFrame) {
+    if(cur_canvas.drewLastFrame) {
       g.play_script_stream("draw", 2, 0, 0, false, .85);
     } 
     
-    if(custom_canvas.erasedLastFrame) {
+    if(cur_canvas.erasedLastFrame) {
       audio@ a = g.play_script_stream("erase", 2, 0, 0, false, 1);
       a.time_scale(.65);
     }
+
+    //Animate
+    if(animate) {
+      if(frame % framerate == 0) {
+        changeCanvas(frame % custom_canvases.size());
+      }
+    } else {
+      frame = 0;
+    }
+    frame++;
   }
 
   void draw_ui() {
     for(uint i = 0; i < color_buttons.size(); i++) {
       color_buttons[i].draw();
     }
+
     clear_button.draw();
     end_button.draw();
+    play_button.draw();
+    for(uint i = 0; i < frame_buttons.size(); i++) {
+      frame_buttons[i].draw();
+    }
   }
 
   void step_ui() {
     for(uint i = 0; i < color_buttons.size(); i++) {
       color_buttons[i].step();
     }
+
+    for(uint i = 0; i < frame_buttons.size(); i++) {
+      frame_buttons[i].step();
+    }
     clear_button.step();
     end_button.step();
+    play_button.step();
   }
 
   void draw(float sub_frame) {
     draw_ui();
-    custom_canvas.draw();
+    cur_canvas.draw();
+    if(curCanvas > 0 && !animate) {
+      custom_canvases[curCanvas-1].drawPreview();
+    }
   }
 
   void editor_draw(float sub_frame) {
     //draw canvas and buttons
     draw_ui();
-    custom_canvas.drawCanvas();
+    custom_canvas.drawCanvas(false);
   }
 
   void editor_step() {
@@ -579,5 +701,91 @@ class ColorButton : ButtonClickHandler, callback_base {
     msg.set_int('color', col);
     broadcast_message('color_picked', msg); 
     g.play_script_stream("splash", 2, 0, 0, false, 10);
+  }
+}
+
+
+/*
+ * Class used to make each color selection button
+ */
+class FrameButton : ButtonClickHandler, callback_base {
+  private float BUTTON_HEIGHT = 40;
+  private float SIZE = 10;
+  //Button
+  UI@ ui;
+  scene@ g;
+  Button@ frame_button;
+  Mouse@ mouse;
+  Rect border;
+  float height;
+  bool selected;
+  uint frame_index;
+  bool add_canvas;
+
+  FrameButton(UI@ ui, float X1, float Y1, uint idx = 0, bool addCanvas = false) {
+    @g = get_scene();
+    @this.ui = ui;
+    @this.mouse = ui.mouse;
+    border = Rect(X1, Y1, X1 + SIZE, Y1 + SIZE);
+    height = BUTTON_HEIGHT - ui.padding * 2;
+    if(addCanvas) {
+      @frame_button = Button(ui, Label(ui, "+", false));
+    } else {
+      @frame_button = Button(ui, Label(ui, idx+"", false));
+    }
+    frame_button.fit_to_height(height);
+    @frame_button.click_listener = this;
+    selected = false;
+    frame_index = idx;
+    add_canvas = addCanvas;
+  }
+
+  void draw() {
+    Rect rect = getButtonRect();
+    //If the current button is selected, we want to highlight it
+    if(selected) {
+      highlight_button(rect);
+    }
+
+    frame_button.draw(g, rect);
+  }
+
+  void step() {
+    frame_button.update(g, getButtonRect());
+  }
+
+  Rect getButtonRect() {
+    const float PADDING = ui.padding;
+    Rect rect = border;
+    rect.set(
+    rect.x1 - PADDING - frame_button.width, rect.y1,
+    rect.x1 - PADDING, rect.y2+height/2);
+
+    return rect;
+  }
+
+  //Draws highlight on button. Used only for if script wants to 
+  //Explicitly highlight button (on hover and on click are handled in button class)
+  void highlight_button(Rect rect) {                            //magic sorry
+    g.draw_rectangle_world(17, 20, rect.x1, rect.y1, rect.x2, rect.y2+5, 0, 0xFFCC483c);
+    g.draw_rectangle_world(17, 21, rect.x1, rect.y1 + frame_button.width, rect.x2 - frame_button.width/2, (rect.y2+5) - frame_button.width/2, 0, 0xFFCC483c);
+  }
+
+
+  void on_button_click(Button@ button) {
+    if(add_canvas) {
+      message@ msg = create_message();
+      msg.set_string('add_canvas', "true");
+      broadcast_message('add_canvas', msg); 
+      //TODO: add sound effect?
+      g.play_script_stream("splash", 2, 0, 0, false, 10);
+    } else {
+      message@ msg = create_message();
+      msg.set_string('set_canvas_index', "true");
+      msg.set_int('index', frame_index);
+      broadcast_message('set_canvas_index', msg); 
+      //TODO: add sound effect?
+      g.play_script_stream("splash", 2, 0, 0, false, 10);
+    }
   }
 }

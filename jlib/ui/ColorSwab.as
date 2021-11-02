@@ -1,6 +1,5 @@
 
 #include '../../../lib/ui/shapes/Shape.cpp';
-
 /*
  * Class that is used with a button to have
  * a colored square be the button contents

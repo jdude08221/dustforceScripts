@@ -10,6 +10,8 @@
  * 4. drawCanvas() can be used inside editorDraw() to draw a canvas 
  *    preview in the editor
  */
+ const uint TRANSPARENCY = 0xAA000000;
+
 class CustomCanvas {
   float x1, x2, y1, y2;
   array<array<Pixel@>> pixels;
@@ -56,6 +58,26 @@ class CustomCanvas {
     common_color = WHITE;
   }
 
+  CustomCanvas(float x1, float y1, float x2, float y2) {
+    @g = get_scene();
+    pixelSize = 10;
+    cur_color = WHITE;
+    brushRect = Rect(0,0,0,0);
+    drewLastFrame = false;
+    erasedLastFrame = false;
+    stopDrawing = false;
+    hasDeadArea = false;
+    inCanvas = false;
+    for(uint i = 0; i < COLOR_LIST.size(); i++) {
+      colors.set(""+COLOR_LIST[i], 0);
+    }
+    @cur_pixel = Pixel(Rect(0,0,0,0), WHITE);
+    common_color = WHITE;
+    X1 = x1;
+    Y1 = y1;
+    X2 = x2;
+    Y2 = y2;
+  }
   /*
    * pix_size is the size of what the canvas' NxN pixel will be
    * Called in onLevelStart()
@@ -93,8 +115,10 @@ class CustomCanvas {
   }
   
   /*Used to draw the plain white canvas only*/
-  void drawCanvas() {
-    g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, common_color);
+  void drawCanvas(bool preview) {
+    if(@g == null)
+      @g = get_scene();
+    g.draw_rectangle_world(17, 10, X1, Y1, X2, Y2, 0, preview ? ((common_color & 0x00FFFFFF) | TRANSPARENCY): common_color);
   }
 
   /* 
@@ -276,22 +300,27 @@ class CustomCanvas {
     //Stop allowing user input
     if(stopDrawing) {
       //Draw the pixels on the canvas
-      drawCanvas();
-      drawPixels();
+      drawCanvas(false);
+      drawPixels(false);
       return;
     }
 
     //Draw the White Canvas
-    drawCanvas();
+    drawCanvas(false);
     
     //Draw the brush preview
     drawBrush();
     
     //Draw the pixels on the canvas
-    drawPixels();
+    drawPixels(false);
 
     //reset the drawing state
     resetDraw();
+  }
+
+  void drawPreview() {
+    drawCanvas(true);
+    drawPixels(true);
   }
 
   void step(float mouse_x, float mouse_y, uint color) {
@@ -464,17 +493,18 @@ class CustomCanvas {
   /*
    * Draws pixels currently stored in canvas matrix to the scene
    */
-  void drawPixels() {
+  void drawPixels(bool preview) {
     for(uint i = 0; i < pixels.size(); i++) {
       for(uint j = 0; j < pixels[i].size(); j++) {
         if(pixels[i][j].color != common_color) {
-          g.draw_rectangle_world(17, 11,
+          uint color = preview ? ((pixels[i][j].color & 0x00FFFFFF) | TRANSPARENCY) 
+           : pixels[i][j].color;
+          g.draw_rectangle_world(17, 12,
           pixels[i][j].rect.x1,
           pixels[i][j].rect.y1,
           pixels[i][j].rect.x2,
           pixels[i][j].rect.y2,
-          0, pixels[i][j].color
-          );
+          0, color);
         }
       }
     }
