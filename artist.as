@@ -17,7 +17,10 @@ const string EMBED_draw = "artist/draw.ogg";
 const string EMBED_erase = "artist/erase.ogg";
 const string EMBED_arp = "artist/arp.ogg";
 const string EMBED_arp_filtered = "artist/arp_filtered.ogg";
-
+const string EMBED_change_frame = "artist/change_frame.ogg";
+const string EMBED_remove_frame = "artist/remove_frame.ogg";
+const string EMBED_add_frame = "artist/add_frame.ogg";
+const string EMBED_animation_speed = "artist/animation_speed.ogg";
 const float BUTTON_SPACING = 28;
 const uint NUM_COLOR_BUTTONS = 48;
 
@@ -31,7 +34,7 @@ class script : callback_base{
   entity@ totem;
   bool right_mouse_down;
   [hidden] uint numPlayers;
-  [text] uint framerate;
+   uint framerate;
   [text]CustomCanvas custom_canvas;
   CustomCanvas@ cur_canvas;
   array<CustomCanvas@> custom_canvases;
@@ -47,12 +50,19 @@ class script : callback_base{
   [hidden] float fbY1;
   [position,mode:world,layer:18,y:pbY1] float pbX1;
   [hidden] float pbY1;
+  [position,mode:world,layer:18,y:sb1Y1] float sb1X1;
+  [hidden] float sb1Y1;
+  [position,mode:world,layer:18,y:sb2Y1] float sb2X1;
+  [hidden] float sb2Y1;
   [text] float brush_width;
   [hidden] array<ColorButton@> color_buttons(NUM_COLOR_BUTTONS);
-  array<FrameButton@> frame_buttons(2);
+  [hidden]array<FrameButton@> frame_buttons(2);
+  audio@ animationSpeed;
   [hidden]LabelButton @clear_button;
   [hidden]LabelButton @end_button;
   [hidden]LabelButton @play_button;
+  [hidden]LabelButton @speed_up_button;
+  [hidden]LabelButton @speed_down_button;
   [entity] int apple;
   [hidden] bool appleSpawned;
   [hidden] bool levelEnded;
@@ -106,7 +116,9 @@ class script : callback_base{
     add_broadcast_receiver('remove_canvas', this, 'remove_canvas');
     add_broadcast_receiver('set_canvas_index', this, 'set_canvas_index');
     add_broadcast_receiver('play_animation', this, 'play_animation');
-    
+    add_broadcast_receiver('animation_speed_up', this, 'animation_speed_up');
+    add_broadcast_receiver('animation_speed_down', this, 'animation_speed_down');
+
     right_mouse_down = false;
     appleSpawned = false;
     fadeSpeed = 100;
@@ -130,7 +142,7 @@ class script : callback_base{
   }
 
   void update_color(string id, message@ msg) {
-    if(msg.get_string('color_change') == 'true') {  
+    if(msg.get_string('color_change') == 'true' && !levelEnded) {  
       cur_color = msg.get_int("color");
     }
 
@@ -157,10 +169,32 @@ class script : callback_base{
     }
   }
   
+  void animation_speed_up(string id, message@ msg) {
+    if(msg.get_string('animation_speed_up') == 'true' && framerate < 60 && !levelEnded) {
+      framerate++;
+      play_animation_speed_sound();
+    }
+  } 
+
+  void animation_speed_down(string id, message@ msg) {
+    if(msg.get_string('animation_speed_down') == 'true' && framerate > 1 && !levelEnded ) { 
+      framerate--;
+      g.play_script_stream("animation_speed", 3, 0, 0, false, 1);
+      //play_animation_speed_sound();
+    }
+  } 
+
+  void play_animation_speed_sound() {
+    float f = framerate;
+    float scale = f > 0 ? .9 * f/15 : .5;
+    g.play_script_stream("animation_speed", 3, 0, 0, false, 1);
+  }
+
   void end_level(string id, message@ msg) {
     if(msg.get_string('end_level') == 'true' && !levelEnded) { 
       cur_canvas.disableDrawing();
       g.end_level(0,0);
+      animate = true;
       levelEnded = true;
     }
   } 
@@ -171,8 +205,8 @@ class script : callback_base{
       //Get previous button's rect
       Rect r = frame_buttons[frame_buttons.size()-1].border;
       Rect r0 = frame_buttons[0].border;
-      float x1 = r0.x1 + ((BUTTON_SPACING + ui.padding) * ((frame_buttons.size()-2) / 26));
-      float y1 = r0.y1 + ((BUTTON_SPACING + ui.padding) * (((frame_buttons.size()-2) % 26) + 1));
+      float x1 = r0.x1 + ((BUTTON_SPACING + ui.padding) * ((frame_buttons.size()-2) / 28));
+      float y1 = r0.y1 + ((BUTTON_SPACING + ui.padding) * (((frame_buttons.size()-2) % 28) + 1));
 
       frame_buttons.insertLast(FrameButton(ui, x1, y1, frame_buttons.size() - 2, false));
     }
@@ -202,6 +236,9 @@ class script : callback_base{
       updateDeadAreas();
 
       changeCanvas(curCanvas);
+
+      audio@ a = g.play_script_stream("remove_frame", 3, 0, 0, false, 20);
+      a.time_scale(.45);
     }
   }
 
@@ -216,7 +253,6 @@ class script : callback_base{
   
   void changeCanvas(uint idx) {
     if(idx < custom_canvases.size()) {
-      puts("change");
       curCanvas = idx;
       //Save current brush size to pass to new canvas
       float bw = cur_canvas.brush_width;
@@ -261,7 +297,8 @@ class script : callback_base{
     c.setDeadArea(clear_button.getRect());
     c.setDeadArea(end_button.getRect());
     c.setDeadArea(play_button.getRect());
-
+    c.setDeadArea(speed_up_button.getRect());
+    c.setDeadArea(speed_down_button.getRect());
     custom_canvases.insertAt(idx, c);
   }
 
@@ -281,7 +318,8 @@ class script : callback_base{
     custom_canvases[0].setDeadArea(clear_button.getRect());
     custom_canvases[0].setDeadArea(end_button.getRect());
     custom_canvases[0].setDeadArea(play_button.getRect());
-    
+    custom_canvases[0].setDeadArea(speed_up_button.getRect());
+     custom_canvases[0].setDeadArea(speed_down_button.getRect());
     @cur_canvas = custom_canvases[0];
     
     if(frame_buttons.size() > 0) {
@@ -342,6 +380,8 @@ class script : callback_base{
       bY1 + (BUTTON_SPACING + ui.padding) * (i/16));
     }
     @play_button = LabelButton(ui, pbX1, pbY1, "play_animation", "Play!");
+    @speed_up_button = LabelButton(ui, sb1X1, sb1Y1, "animation_speed_up", ">>>");
+    @speed_down_button = LabelButton(ui, sb2X1, sb2Y1, "animation_speed_down", "<<<");
     @clear_button  = LabelButton(ui, cbX1, cbY1, "clear_canvas", "Clear");
     @end_button  = LabelButton(ui, ebX1, cbY1, "end_level", "Done!");
   }
@@ -362,6 +402,10 @@ class script : callback_base{
     msg.set_string("splash", "splash");
     msg.set_string("draw", "draw");
     msg.set_string("erase", "erase");
+    msg.set_string("change_frame", "change_frame");
+    msg.set_string("remove_frame", "remove_frame");
+    msg.set_string("add_frame", "add_frame");
+    msg.set_string("animation_speed", "animation_speed");
   }
 
 
@@ -487,7 +531,7 @@ class script : callback_base{
 
     //Animate
     if(animate) {
-      if(frame % framerate == 0) {
+      if(frame % (60/framerate) == 0) {
         changeCanvas(animationFrame % custom_canvases.size());
         animationFrame++;
       }
@@ -510,6 +554,8 @@ class script : callback_base{
     clear_button.draw();
     end_button.draw();
     play_button.draw();
+    speed_up_button.draw();
+    speed_down_button.draw();
     for(uint i = 0; i < frame_buttons.size(); i++) {
       frame_buttons[i].draw();
     }
@@ -526,6 +572,8 @@ class script : callback_base{
     clear_button.step();
     end_button.step();
     play_button.step();
+    speed_up_button.step();
+    speed_down_button.step();
   }
 
   void draw(float sub_frame) {
@@ -836,21 +884,21 @@ class FrameButton : ButtonClickHandler, callback_base {
       message@ msg = create_message();
       msg.set_string('add_canvas', "true");
       broadcast_message('add_canvas', msg); 
-      //TODO: add sound effect?
-      g.play_script_stream("splash", 2, 0, 0, false, 10);
+      audio@ a = g.play_script_stream("add_frame", 3, 0, 0, false, 30);
+      a.time_scale(.65);
     } else if(remove_canvas) {
       message@ msg = create_message();
       msg.set_string('remove_canvas', "true");
       broadcast_message('remove_canvas', msg); 
-      //TODO: add sound effect?
-      g.play_script_stream("splash", 2, 0, 0, false, 10);
+      //Sound effect handled in script() if canvas is actually removed
     } else {
       message@ msg = create_message();
       msg.set_string('set_canvas_index', "true");
       msg.set_int('index', frame_index);
       broadcast_message('set_canvas_index', msg); 
-      //TODO: add sound effect?
-      g.play_script_stream("splash", 2, 0, 0, false, 10);
+      //Play paper tearing sound effect
+      audio@ a = g.play_script_stream("change_frame", 3, 0, 0, false, 20);
+      a.time_scale(.65);
     }
   }
 }
