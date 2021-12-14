@@ -1,9 +1,11 @@
 class Vec3
 {
+  scene@ g;
   float x, y, z;
-  
+  float size = 10;
   Vec3(float x=0, float y=0, float z=0)
   {
+    @g = get_scene();
     this.x = x;
     this.y = y;
     this.z = z;
@@ -82,7 +84,20 @@ class Vec3
     z = v.z;
   }
 
+  float dot(Vec3 b) {
+   float product = 0;
+   product += x * b.x;
+   product += y * b.y;
+   product += z * b.z;
+   return product;
+  }
+
   void print() {
     puts("Vec3: x " + x + " y " + y + " z " + z);
+  }
+
+  void draw(float offsetX, float offsetY, float layer = 20, float sublayer = 19) {
+      g.draw_rectangle_world(layer, sublayer, x - size/2 + offsetX, y - size/2 + offsetY,
+      x + size/2 + offsetX,  y + size/2 + offsetY, 0, 0xFFFFFFFF);
   }
 }

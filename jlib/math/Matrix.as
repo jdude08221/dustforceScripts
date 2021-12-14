@@ -8,9 +8,12 @@ class Matrix {
     vals = m;
   }
 
+  Vec3@ multiply(Vec3@ vec) {
+    Matrix@ m = vecToMatrix(vec);
+    return this.multiply(m);
+  }
 
-  Matrix@ multiply(Matrix@ matrixPrime) {
-
+  Vec3@ multiply(Matrix@ matrixPrime) {
     if(@vals == null || @matrixPrime == null){
       puts("cannot multiply null matrix");
       return null;
@@ -37,8 +40,7 @@ class Matrix {
         ret.vals[i][j] = sum;
       }
     }
-
-    return ret;
+    return matrixToVec3(ret);
   }
 
   void print() {
