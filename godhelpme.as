@@ -1,3 +1,6 @@
+
+//https://en.wikipedia.org/wiki/Rotation_matrix
+//https://www.youtube.com/watch?v=p4Iz0XJY-Qk
 #include "jlib/math/Matrix.as"
 #include "jlib/math/Vec3.as"
 #include "jlib/const/ColorConsts.as"
