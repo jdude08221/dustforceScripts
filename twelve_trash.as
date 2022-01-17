@@ -1,3 +1,4 @@
+#include "lib/utils/print_vars.cpp"
 const int NUM_FRAMES = 22; 
 const string EMBED_out1 = "frames/out1.png";
 const string EMBED_out2 = "frames/out2.png";
@@ -24,20 +25,13 @@ const string EMBED_out21 = "frames_twelve_idle/out10.png";
 const string EMBED_out22 = "frames_twelve_idle/out11.png";
 
 //"invisible" sprites
-const string EMBED_attacki = "invis/attack.png";
-const string EMBED_cuei = "invis/cue.png";
-const string EMBED_idlei = "invis/idle.png";
-const string EMBED_turni = "invis/turn.png";
-const string EMBED_walki = "invis/walk.png";
+const string EMBED_blank = "invis/blank.png";
 
 class EntityData {
   [entity] uint id;
-  [position,mode:world,layer:19,y:offscreenY] float offscreenX;
-  [hidden] float offscreenY;
   bool attacking;
   uint attackTimer;
   uint attackFrameCount;
-  float realX,realY;
 }
 
 class script : callback_base{
@@ -75,11 +69,18 @@ class script : callback_base{
     for(int i = 1; i <= NUM_FRAMES; i++) {
       msg.set_string("out"+i,"out"+i); 
     }
-    msg.set_string("attack","attacki");
-    msg.set_string("cue","cuei");
-    msg.set_string("idle","idlei");
-    msg.set_string("turn","turni");
-    msg.set_string("walk","walki");
+    msg.set_string("attack","blank");
+    msg.set_string("cue","blank");
+    msg.set_string("idle","blank");
+    msg.set_string("turn","blank");
+    msg.set_string("walk","blank");
+    msg.set_string("attackeffect","blank");
+    msg.set_string("cfall1","blank");
+    msg.set_string("chover1","blank");
+    msg.set_string("cidle1","blank");
+    msg.set_string("cland1","blank");
+    msg.set_string("cleansed1","blank");
+    msg.set_string("cthanks1","blank");
   }
 
   void on_level_start() {
@@ -94,18 +95,6 @@ class script : callback_base{
       enemies[i].attacking = false;
       enemies[i].attackTimer = 0;
       enemies[i].attackFrameCount = 0;
-    }
-  }
-  
-  void pre_draw(float) {    
-    for(uint i = 0; i < enemies.size(); i++) {
-      entity@ e = entity_by_id(enemies[i].id);
-      if(@e != null) {
-          enemies[i].realX = e.x();
-          enemies[i].realY = e.y();
-          e.x(enemies[i].offscreenX);
-          e.y(enemies[i].offscreenY);
-      }
     }
   }
   
@@ -155,12 +144,20 @@ class script : callback_base{
     spr.add_sprite_set("script");  
   }
 
-  void entity_on_add(entity@ e){
+  void entity_on_add(entity@ e) {
     if(@e != null) {
-      if(e.as_hitbox() != null && e.as_hitbox().owner() != null && e.as_hitbox().owner().type_name() == "enemy_trash_beast") {
-        //TODO: attempt to make hitbox sprites invisible
-      } else if(e.type_name() == "enemy_trash_beast") {
-        //???
+      //Removes effect sprites for trash bear
+      if(e.type_name() == "effect") {
+        if(e.get_sprites().get_sprite_count("trash_beast") > 0) {
+          e.get_sprites().add_sprite_set("script");
+        }
+      }
+
+      //Removes hitbox sprite for trash bear
+      if(@e.as_hitbox() != null && 
+        @e.as_hitbox().owner() != null && 
+        e.as_hitbox().owner().type_name() == "enemy_trash_beast") {
+        e.as_hitbox().attack_effect("");
       }
     }
   }
@@ -172,21 +169,19 @@ class script : callback_base{
         continue;
       }
 
-      float x = enemies[i].realX;
-      float y = enemies[i].realY;
+      float x = e.x() + 15*e.face();
+      float y = e.y() - 10;
 
       if(enemies[i].attacking) {
         if(enemies[i].attackTimer > attackWindup) {
           //draw attacking frames
-          //spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount % 11)], 0, 1, x-175*e.face(), y-145, 0, (scale+.25) * e.face(), scale, 0xFFFFFFFF);
+          spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount % 11)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
         } else {
-          //spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale, 0xFFFFFFFF);
+          spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
         }
       } else {
-        //spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale, 0xFFFFFFFF);
+        spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
       }
-      e.x(enemies[i].realX);
-      e.y(enemies[i].realY);
     }
     draw_frame_count++;
   }
