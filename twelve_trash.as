@@ -26,7 +26,7 @@ const string EMBED_out22 = "frames_twelve_idle/out11.png";
 
 //"invisible" sprites
 const string EMBED_blank = "invis/blank.png";
-
+const string EMBED_axe = "dlc2/twelve_axe.ogg";
 class EntityData {
   [entity] uint id;
   bool attacking;
@@ -38,7 +38,7 @@ class script : callback_base{
   int frame_count;
   int draw_frame_count;
   int curSpriteIndex;
-  uint attackWindup = 23;
+  uint attackWindup = 18;
   sprites@ spr;
   scene@ g;
 
@@ -65,7 +65,11 @@ class script : callback_base{
     framesGlobal[11] = "out11";
   }
 
-  void build_sprites(message@ msg) {    
+  void build_sounds(message@ msg) {
+    msg.set_string("axe", "axe");
+  }
+
+  void build_sprites(message@ msg) {
     for(int i = 1; i <= NUM_FRAMES; i++) {
       msg.set_string("out"+i,"out"+i); 
     }
@@ -84,6 +88,8 @@ class script : callback_base{
   }
 
   void on_level_start() {
+    g.override_sound("sfx_trashbeast_attack", "axe", true);
+
     //Populate names of frames into global frame array
     for(int i = 1; i <= NUM_FRAMES; i++) {
       framesGlobal[i-1] = "out" + i;
@@ -104,7 +110,7 @@ class script : callback_base{
       curSpriteIndex++;
     }
     
-    if(frame_count%3 == 0) {
+    if(frame_count%5 == 0) {
       for(uint i = 0; i < enemies.size(); i++) {
         if(enemies[i].attackTimer > attackWindup) {
           enemies[i].attackFrameCount++;
@@ -125,10 +131,12 @@ class script : callback_base{
       int attackState = e.as_controllable().attack_state();
       
       enemies[i].attacking = attackState > 0;
-      if(enemies[i].attacking) {
+      if(enemies[i].attacking || enemies[i].attackFrameCount < 11 && enemies[i].attackTimer > attackWindup) {
         enemies[i].attackTimer++;
         
       } else {
+        if(enemies[i].attackTimer > 0)
+        puts(enemies[i].attackTimer +"");
         enemies[i].attackTimer = 0;
         enemies[i].attackFrameCount = 0;
       }
@@ -136,9 +144,7 @@ class script : callback_base{
     frame_count++;
   }
 
-  void editor_draw(float subframe) {
-
-  }
+  void editor_draw(float subframe) {}
 
   void editor_step() {
     spr.add_sprite_set("script");  
@@ -172,10 +178,10 @@ class script : callback_base{
       float x = e.x() + 15*e.face();
       float y = e.y() - 10;
 
-      if(enemies[i].attacking) {
+      if(enemies[i].attacking || enemies[i].attackFrameCount < 11) {
         if(enemies[i].attackTimer > attackWindup) {
           //draw attacking frames
-          spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount % 11)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
+          spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
         } else {
           spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
         }
