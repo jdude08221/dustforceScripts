@@ -147,7 +147,7 @@ class script : callback_base{
   void editor_draw(float subframe) {}
 
   void editor_step() {
-    spr.add_sprite_set("script");  
+    spr.add_sprite_set("script");
   }
 
   void entity_on_add(entity@ e) {
@@ -177,14 +177,10 @@ class script : callback_base{
 
       float x = e.x() + 15*e.face();
       float y = e.y() - 10;
-
-      if(enemies[i].attacking || enemies[i].attackFrameCount < 11) {
-        if(enemies[i].attackTimer > attackWindup) {
-          //draw attacking frames
-          spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
-        } else {
-          spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
-        }
+      
+      if(enemies[i].attackTimer > attackWindup) {
+        //draw attacking frames
+        spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
       } else {
         spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
       }
