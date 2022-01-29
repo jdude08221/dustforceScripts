@@ -46,7 +46,7 @@ class script : callback_base{
   [text] bool showSprite;
   [text] float scale;
   [text] array<EntityData> enemies(0);
-  [position,mode:world,layer:19,y:Y1] float X1;
+  
 
   [hidden] float Y1;
  
@@ -54,8 +54,6 @@ class script : callback_base{
   array<string>framesGlobal(NUM_FRAMES);
   script() {
     @g = get_scene();
-    X1 = 0;
-    Y1 = 0;
     layer = 20;
     scale = 1;
     frame_count = 0;
@@ -136,7 +134,6 @@ class script : callback_base{
         
       } else {
         if(enemies[i].attackTimer > 0)
-        puts(enemies[i].attackTimer +"");
         enemies[i].attackTimer = 0;
         enemies[i].attackFrameCount = 0;
       }
@@ -176,13 +173,13 @@ class script : callback_base{
       }
 
       float x = e.x() + 15*e.face();
-      float y = e.y() - 10;
+      float y = e.y();
       
       if(enemies[i].attackTimer > attackWindup) {
         //draw attacking frames
-        spr.draw_world(layer, 1, framesGlobal[(enemies[i].attackFrameCount)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
+        spr.draw_world(layer, 8, framesGlobal[(enemies[i].attackFrameCount)], 0, 1, x-175*e.face(), y-145, 0, (scale+.5) * e.face(), scale + .30, 0xFFFFFFFF);
       } else {
-        spr.draw_world(layer, 1, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
+        spr.draw_world(layer, 8, framesGlobal[11+(curSpriteIndex % 11)], 0, 1, x-75*e.face(), y-115, 0, (scale + .25) * e.face(), scale + .30, 0xFFFFFFFF);
       }
     }
     draw_frame_count++;
