@@ -51,6 +51,8 @@ class script : callback_base{
   float target_y;
   bool dismissRightClick;
   bool doJump = false;
+  int jumpFrames;
+
   script() {
     @g = get_scene();
     init_buttons();
@@ -116,8 +118,14 @@ class script : callback_base{
 
     if(doJump) {
       dm.jump_intent(1);
-      doJump = false;
+      if(jumpFrames < 8) {
+        jumpFrames++;
+      } else {
+        jumpFrames = 0;
+        doJump = false;
+      }
     }
+    
     step_ui();
 
     float mouse_x = g.mouse_x_world(0, 18);
