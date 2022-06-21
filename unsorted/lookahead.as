@@ -12,9 +12,12 @@ class script{
 
   Sprite spr1;
   [text] int stretch;
-  [text] int scroll_speed;
+  [text] int scroll_speed_horz = 50;
+  [text] int scroll_speed_vert = 50;
   [text] bool show_telescope = true;
+  [text] bool smooth_scroll = false;
   [hidden] string sprSet, sprName;
+
   float target_horz = 0;
   float target_vert = 0;
 
@@ -62,16 +65,16 @@ class script{
 
     if(dm.ground()) {
       camera_toggle = dm.taunt_intent() == 1 ? !camera_toggle : camera_toggle;
-    }
+    } 
     
     @c = get_active_camera();
     frames++;
     
     if(!camera_toggle) {
-      puts("reset");
       target_horz = c.x();
       target_vert = c.y();
-      scroll_speed = abs(scroll_speed);
+      scroll_speed_horz = abs(scroll_speed_horz);
+      scroll_speed_vert = abs(scroll_speed_vert);
       c.script_camera(false);
     } else {
       c.script_camera(true);
@@ -89,8 +92,7 @@ class script{
       update_horz = true;
       held_horz = true;
       if(@c != null) {
-        scroll_speed = abs(scroll_speed) * abs(dm.x_intent())/dm.x_intent();
-        puts("scroll_speed: "+scroll_speed);
+        scroll_speed_horz = abs(scroll_speed_horz) * abs(dm.x_intent())/dm.x_intent();
         target_horz = c.x() + (c.screen_width() * (abs(dm.x_intent())/dm.x_intent()));
       }
     }
@@ -99,38 +101,52 @@ class script{
       update_vert = true;
       held_vert = true;
       if(@c != null) {
-        scroll_speed = abs(scroll_speed) * abs(dm.y_intent())/dm.y_intent();
-        puts("scroll_speed: "+scroll_speed);
+        scroll_speed_vert = abs(scroll_speed_vert) * abs(dm.y_intent())/dm.y_intent();
         target_vert = c.y() + (c.screen_height() * (abs(dm.y_intent())/dm.y_intent()));
       }
     }
-
-
-
 
     if(@dm != null && 
        dm.ground() == true &&
        camera_toggle &&
        @c != null) {
-        if(update_horz && scroll_speed > 0 && c.x() + scroll_speed < target_horz) {
-          puts("Positive c.x() "+c.x()+" scroll_speed "+scroll_speed + " Target " + target_horz);
-          c.x(c.x() + scroll_speed);
-        } else if(scroll_speed < 0 && c.x() + scroll_speed > target_horz) {
-          c.x(c.x() + scroll_speed);
-          puts("Negative c.x() "+c.x()+" scroll_speed "+scroll_speed + " Target " + target_horz);
+        if(smooth_scroll) {
+          if(held_horz && check_unload(dm, c.x() + scroll_speed_horz, c.y())) {
+            c.x(c.x() + scroll_speed_horz);
+          }
+          
+          if(held_vert && check_unload(dm, c.x(), c.y() + scroll_speed_vert)) {
+            c.y(c.y() + scroll_speed_vert);
+          } 
         } else {
-          puts("else x");
-          update_horz = false;
-          c.x(target_horz);
-        }
-        
-        if(update_vert && scroll_speed > 0 && c.y() + scroll_speed < target_vert) {
-          c.y(c.y() + scroll_speed);
-        } else if(scroll_speed < 0 && c.y() + scroll_speed > target_vert) {
-          c.y(c.y() + scroll_speed);
-        } else {
-          update_vert = false;
-          c.y(target_vert);
+          if(update_horz && 
+          check_unload(dm, c.x() + scroll_speed_horz, c.y()) && 
+          scroll_speed_horz > 0 && 
+          c.x() + scroll_speed_horz < target_horz) {
+            c.x(c.x() + scroll_speed_horz);
+          } else if(update_horz && 
+          check_unload(dm, c.x() + scroll_speed_horz, c.y()) && 
+          scroll_speed_horz < 0 && 
+          c.x() + scroll_speed_horz > target_horz) {
+            c.x(c.x() + scroll_speed_horz);
+          } else {
+            puts("else x");
+            update_horz = false;
+          }
+          
+          if(update_vert && 
+          check_unload(dm, c.x(), c.y() + scroll_speed_vert) && 
+          scroll_speed_vert > 0 && 
+          c.y() + scroll_speed_vert < target_vert) {
+            c.y(c.y() + scroll_speed_vert);
+          } else if(update_vert && 
+          check_unload(dm, c.x(), c.y() + scroll_speed_vert) && 
+          scroll_speed_vert < 0 && 
+          c.y() + scroll_speed_vert > target_vert) {
+            c.y(c.y() + scroll_speed_vert);
+          } else {
+            update_vert = false;
+          }
         }
 
         telescope_x = dm.x() + get_x_offset(dm);
@@ -142,6 +158,11 @@ class script{
         dm.light_intent(0);
         dm.dash_intent(0);
     }
+  }
+
+  bool check_unload(dustman @dm, float cx, float cy) {
+    return abs(dm.x() - cx) < 2304 && 
+           abs(dm.y() - cy) < 2304;
   }
 
   float get_y_offset(dustman @dm) {
