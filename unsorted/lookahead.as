@@ -12,8 +12,18 @@ class script{
 
   Sprite spr1;
   [text] int stretch;
+  [text] int scroll_speed;
   [text] bool show_telescope = true;
   [hidden] string sprSet, sprName;
+  float target_horz = 0;
+  float target_vert = 0;
+
+  bool held_horz = false;
+  bool held_vert = false;
+
+  bool update_horz = false;
+  bool update_vert = false;
+
   float telescope_x = 0;
   float telescope_y = 0;
 
@@ -56,17 +66,73 @@ class script{
     
     @c = get_active_camera();
     frames++;
-
+    
     if(!camera_toggle) {
+      puts("reset");
+      target_horz = c.x();
+      target_vert = c.y();
+      scroll_speed = abs(scroll_speed);
       c.script_camera(false);
+    } else {
+      c.script_camera(true);
     }
     
+    if(@dm != null && dm.x_intent() == 0) {
+      held_horz = false;
+    }
+
+    if(@dm != null && dm.y_intent() == 0) {
+      held_vert = false;
+    }
+
+    if(@dm != null && dm.x_intent() != 0 && !held_horz) {
+      update_horz = true;
+      held_horz = true;
+      if(@c != null) {
+        scroll_speed = abs(scroll_speed) * abs(dm.x_intent())/dm.x_intent();
+        puts("scroll_speed: "+scroll_speed);
+        target_horz = c.x() + (c.screen_width() * (abs(dm.x_intent())/dm.x_intent()));
+      }
+    }
+
+    if(@dm != null && dm.y_intent() != 0 && !held_vert) {
+      update_vert = true;
+      held_vert = true;
+      if(@c != null) {
+        scroll_speed = abs(scroll_speed) * abs(dm.y_intent())/dm.y_intent();
+        puts("scroll_speed: "+scroll_speed);
+        target_vert = c.y() + (c.screen_height() * (abs(dm.y_intent())/dm.y_intent()));
+      }
+    }
+
+
+
+
     if(@dm != null && 
        dm.ground() == true &&
        camera_toggle &&
        @c != null) {
-        c.x(c.x() + (stretch*dm.x_intent()));
-        c.y(c.y() + (stretch*dm.y_intent()));
+        if(update_horz && scroll_speed > 0 && c.x() + scroll_speed < target_horz) {
+          puts("Positive c.x() "+c.x()+" scroll_speed "+scroll_speed + " Target " + target_horz);
+          c.x(c.x() + scroll_speed);
+        } else if(scroll_speed < 0 && c.x() + scroll_speed > target_horz) {
+          c.x(c.x() + scroll_speed);
+          puts("Negative c.x() "+c.x()+" scroll_speed "+scroll_speed + " Target " + target_horz);
+        } else {
+          puts("else x");
+          update_horz = false;
+          c.x(target_horz);
+        }
+        
+        if(update_vert && scroll_speed > 0 && c.y() + scroll_speed < target_vert) {
+          c.y(c.y() + scroll_speed);
+        } else if(scroll_speed < 0 && c.y() + scroll_speed > target_vert) {
+          c.y(c.y() + scroll_speed);
+        } else {
+          update_vert = false;
+          c.y(target_vert);
+        }
+
         telescope_x = dm.x() + get_x_offset(dm);
         telescope_y = dm.y() + get_y_offset(dm);
         dm.x_intent(0);
