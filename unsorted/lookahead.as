@@ -11,11 +11,11 @@ class script{
   bool is_dustkid = false;
 
   Sprite spr1;
-  [text] int stretch;
-  [text] int scroll_speed_horz = 50;
-  [text] int scroll_speed_vert = 50;
+  [text|tooltip:"Only used when smooth_scroll is off\nValue for how far camera will stretch in px",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int stretch;
+  [text|tooltip:"Measured in px/frame",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int scroll_speed_horz = 50;
+  [text|tooltip:"Measured in px/frame",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] int scroll_speed_vert = 50;
   [text] bool show_telescope = true;
-  [text] bool smooth_scroll = false;
+  [text|tooltip:"Moves screen like arrow keys in starcraft would\ninstead of in \"chunks\"",delay:20,font:sans_bold,size:20,colour/color:0xFFFFFFFF] bool smooth_scroll = false;
   [hidden] string sprSet, sprName;
 
   float target_horz = 0;
