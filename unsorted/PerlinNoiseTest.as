@@ -4,12 +4,14 @@ const uint NO_TILE = 21;
 class script {
   [slider, min:1, max:8] uint octaveCount = 1;
   [slider, min:1, max:20] float dotSize = 10;
-  [slider, min:0.02, max:1.5] float scale = .2;
+  [slider, min:0.01, max:1.5] float scale = .2;
   [slider, min:1, max:10] int spacing;
   [slider, min:1, max:100] int spacingDots;
   [text] bool randomize = false;
   [text] bool generate = false;
- [text] bool debug = false;
+  [text] bool debug = false;
+  [text] bool drawGridOn = false;
+  
   uint resolution = 10;
   uint cols, rows;
 
@@ -55,8 +57,12 @@ class script {
 
   void editor_draw(float subframe) {
     //drawPerlinNoise2();
-    drawGrid();
+    if(drawGridOn) {
+      drawGrid();
+    }
+
     drawLines();
+
     if(debug) {
       debugInfo();
     }
@@ -80,8 +86,7 @@ class script {
      for(uint i = 0; i < tiles.size(); i++) {
       textfield@ t = create_textfield();
       t.set_font("envy_bold", 20);
-        
-        t.text(tiles[i].type+"");
+      t.text(tiles[i].type+"");
       t.colour(0xFF000000);
       tf.insertLast(t);
     }
@@ -99,7 +104,7 @@ class script {
   }
 
   void generateTiles() {
-    puts("Generating! "+tiles.size());
+    puts("Generating! "+ tiles.size()+" tiles. Scale: "+scale+" octaves: "+octaveCount);
     debugCounter = 0;
     for(uint i = 0; i < tiles.size(); i++) {
       if(tiles[i].type != NO_TILE) {
@@ -252,9 +257,9 @@ class script {
             tiles.insertLast(t);
             @t = TileHelper(tilex+1, tiley, vals[1]);
             tiles.insertLast(t);
-            @t = TileHelper(tilex, tiley-1, vals[2]);
+            @t = TileHelper(tilex, tiley+1, vals[2]);
             tiles.insertLast(t);
-            @t = TileHelper(tilex+1, tiley-1, vals[3]);
+            @t = TileHelper(tilex+1, tiley+1, vals[3]);
             tiles.insertLast(t);
             break;
           case 1:
@@ -284,8 +289,8 @@ class script {
             insertLine(b, c);
             break;
           case 6:
-            vals[0] = 0; vals[1] = NO_TILE;
-            vals[2] = 0; vals[3] = NO_TILE;
+            vals[0] = NO_TILE; vals[1] = 0;
+            vals[2] = NO_TILE; vals[3] = 0;
             insertLine(a, c, vals, tilex, tiley);
             break;
           case 7:
@@ -299,8 +304,8 @@ class script {
             insertLine(a, d, vals, tilex, tiley);
             break;
           case 9:
-            vals[0] = NO_TILE; vals[1] = 0;
-            vals[2] = NO_TILE; vals[3] = 0;
+            vals[0] = 0; vals[1] = NO_TILE;
+            vals[2] = 0; vals[3] = NO_TILE;
             insertLine(a, c, vals, tilex, tiley);
             break;
           case 10:
@@ -337,9 +342,9 @@ class script {
             tiles.insertLast(t);
             @t = TileHelper(tilex+1, tiley, vals[1]);
             tiles.insertLast(t);
-            @t = TileHelper(tilex, tiley-1, vals[2]);
+            @t = TileHelper(tilex, tiley+1, vals[2]);
             tiles.insertLast(t);
-            @t = TileHelper(tilex+1, tiley-1, vals[3]);
+            @t = TileHelper(tilex+1, tiley+1, vals[3]);
             tiles.insertLast(t);
             break;
         };
@@ -358,8 +363,8 @@ class script {
 
     TileHelper @t1 = TileHelper(tilex,   tiley,   tileVals[0]);
     TileHelper @t2 = TileHelper(tilex+1, tiley,   tileVals[1]);
-    TileHelper @t3 = TileHelper(tilex,   tiley-1, tileVals[2]);
-    TileHelper @t4 = TileHelper(tilex+1, tiley-1, tileVals[3]);
+    TileHelper @t3 = TileHelper(tilex,   tiley+1, tileVals[2]);
+    TileHelper @t4 = TileHelper(tilex+1, tiley+1, tileVals[3]);
 
     tiles.insertLast(t1);
     tiles.insertLast(t2);
