@@ -76,12 +76,12 @@ class PerlinNoise {
 class PerlinNoise2 {
   array<float> noiseSeed2d;
   array<float> perlinNoise2d;
-  uint octaves;
+  uint octaves = 1;
   uint outputWidth;
   uint outputHeight;
   float scale;
 
-  PerlinNoise2(uint outWidth = 256, uint outHeight = 256, uint nOctaves = 8, float sc = 2.0f, int nmode = 1) {
+  PerlinNoise2(uint outWidth = 256, uint outHeight = 256, uint nOctaves = 8, float sc = 2.0f) {
     outputWidth = outWidth;
     outputHeight = outHeight;
     scale = sc;
@@ -89,34 +89,35 @@ class PerlinNoise2 {
     seed();
   }
 
-  array<float> PerlinNoise2D() {
+  array<float> generateNoise2d() {
     array<float> fOutput(outputWidth * outputHeight);
-
    for (int x = 0; x < outputWidth; x++) {
 			for (int y = 0; y < outputHeight; y++)
 			{				
 				float fNoise = 0.0f;
 				float fScaleAcc = 0.0f;
 				float fScale = 1.0f;
-
 				for (int o = 0; o < octaves; o++)
 				{
+          
 					int nPitch = outputWidth >> o;
+          nPitch = nPitch == 0 ? 1 : nPitch;
 					int nSampleX1 = (x / nPitch) * nPitch;
 					int nSampleY1 = (y / nPitch) * nPitch;
-					
+
 					int nSampleX2 = (nSampleX1 + nPitch) % outputWidth;
 					int nSampleY2 = (nSampleY1 + nPitch) % outputWidth;
 
 					float fBlendX = float(x - nSampleX1) / float(nPitch);
 					float fBlendY = float(y - nSampleY1) / float(nPitch);
-
+          
 					float fSampleT = (1.0f - fBlendX) * noiseSeed2d[nSampleY1 * outputWidth + nSampleX1] + fBlendX * noiseSeed2d[nSampleY1 * outputWidth + nSampleX2];
 					float fSampleB = (1.0f - fBlendX) * noiseSeed2d[nSampleY2 * outputWidth + nSampleX1] + fBlendX * noiseSeed2d[nSampleY2 * outputWidth + nSampleX2];
-
+          
 					fScaleAcc += fScale;
 					fNoise += (fBlendY * (fSampleB - fSampleT) + fSampleT) * fScale;
 					fScale = fScale / scale;
+          
 				}
 				// Scale to seed range
 				fOutput[y * outputWidth + x] = fNoise / fScaleAcc;
