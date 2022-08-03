@@ -6,12 +6,14 @@
 #include "../lib/math/math.cpp"
 
 const float tileSize = 48;
-const float mapWidth = 500;
-const float mapHeight = 500;
-const float castLen = 528;
-const float fov = 100;
+const float mapWidth = 1600;
+const float mapHeight = 900;
+const float fov = 90;
 const float hitbox_half = 45;
-const float block_width = 1000;
+const float block_width = 2000;
+const float enemy_width = 1000;
+const float enemy_scan_distance = 2000;
+
 class script {
   [text] bool debugEnabled = false;
   [hidden] float Y1;
@@ -22,11 +24,13 @@ class script {
   Vec2@ pos;
   raycast@ ray;
   controllable@ player = null;
+  array<entity@> seenEntities(0);
   int facing = 1;
-
+  uint lastColor = 0;
+  uint raycastDebugCount = 0;
   script() {
     @g = get_scene();
-    @c = create_canvas(false, 19, 19);
+    @c = create_canvas(true, 0, 0);
   }
   
 
@@ -49,12 +53,12 @@ class script {
 
     pos.x = dm.x();
     pos.y = dm.y()-80;
-    facing = dm.face();
+    facing = dm.attack_state() != 0 ? dm.attack_face() : dm.face();
+    updateSeenEntities();
   }
 
    void draw(float sub_frame) {
-      c.draw_rectangle(0, 0, mapWidth, mapHeight, 0, WHITE);
-
+      c.draw_rectangle(-mapWidth/2, -mapHeight/2, mapWidth/2, mapHeight/2, 0, WHITE);
       doRaycast();
    }
 
@@ -64,64 +68,142 @@ class script {
       }
    }
 
+
+
   void doRaycast() {
-    for(float i = 0; i <= fov; i++) {
+    for(float i = 0; i < mapHeight; i++) {
+      dustman@ dm = player.as_dustman();
+          float r = 4000;
+          //float theta = (i-fov/2)*DEG2RAD;
+          float theta = i == 0 ? 0 : (i/mapHeight * fov - fov/3)*DEG2RAD;
+          float targetX = pos.x + r*cos(theta) * facing;
+          float targetY = pos.y + r*sin(theta);
+          @ray = g.ray_cast_tiles(pos.x, pos.y,  targetX,  targetY);
 
-        /*raycast@ ray_cast_tiles(
-          float x1, float y1, float x2, float y2,
-          raycast@ result);*/
-          @ray = g.ray_cast_tiles(pos.x, pos.y, 
-          pos.x + mapHeight * tileSize * cos((i-fov/2)*DEG2RAD) * facing, 
-          pos.y + mapHeight * tileSize * sin((i-fov/2)*DEG2RAD));
-          
-          float rx = ray.hit_x();
-          float ry = ray.hit_y();
-      // void draw_line(float x1, float y1,
-      //   float x2, float y2, float width, uint colour);
-//        puts(i+" "+pos.x+" "+pos.y+" "+rx+" "+ry);
-          // if(rx == 0) {
-          //    puts(i+
-          //    " "+
-          //    pos.x+
-          //    " "+
-          //    pos.y+
-          //    " "+
-          //    (pos.x + mapHeight * cos((i-45)*DEG2RAD) * facing)+
-          //    " "+
-          //    (pos.y + mapHeight * sin((i-45)*DEG2RAD)));
+          float rx = ray.hit() ? ray.hit_x() : targetX;
+          float ry = ray.hit() ? ray.hit_y() : targetY;
 
-          //    c.draw_line(
-          // pos.x, 
-          // pos.y, 
-          // pos.x + mapHeight * cos((i-45)*DEG2RAD) * facing,
-          // pos.y + mapHeight * sin((i-45)*DEG2RAD), 1, BLUE);
-
-          // }
-//          float dist = distance(pos.x, pos.y, rx, ry);
           float dist = abs(pos.x - rx);
-          c.draw_line(pos.x, pos.y, rx, ry, 1, RED);
+          
+          g.draw_line_world(18,20, pos.x, pos.y, rx, ry, 1, RED);
+          uint color = BLUE;
 
+
+
+         /* Each tile filth value indicates if and what type of filth or spikes are
+          * present on a given face of a tile.  These values should be:
+          *
+          * 0: no filth/spikes
+          * 1-5: dust, leaves, trash, slime, virtual filth
+          * 9-13: mansion spikes, forest spikes, cones, wires, virtual spikes
+          */
+
+          //Get tile hit by raycast
+          tilefilth@ tf = g.get_tile_filth(rx/48, ry/48);
+          uint baseColor = WHITE;
           /* Returns 0-3 indicating the side of the edge hit from
-            * top, bottom, left, right in that order. */
-          //int tile_side();
+          * top, bottom, left, right in that order. */
+          switch(ray.tile_side()) {
+            case 0://top
+              baseColor = getBaseColor(tf.top(), 1);
+              break;
+            case 1://bottom
+              baseColor = getBaseColor(tf.bottom(), 4);
+              break;
+            case 2://left
+              baseColor = getBaseColor(tf.left(), 2);
+              break;
+            case 3://right
+              baseColor = getBaseColor(tf.right(), 2);
+              break;
+            default:
+              color = baseColor;
+              break;
+          }
 
-          uint color = ray.tile_side() == 0 || ray.tile_side() == 1 ? BLUE : BLUE/2;
-          if(dist !=0){
-            c.draw_line(mapWidth/2 - block_width/sqrt(dist), 
-            (i*(mapHeight/fov)), 
-            mapWidth/2+block_width/sqrt(dist), 
-            (i*(mapHeight/fov)), 
+          baseColor |= RGBALPHA;
+          color = baseColor;
+        
+            c.draw_line(
+            -block_width/sqrt(dist), 
+            (i- mapHeight/2), 
+            block_width/sqrt(dist), 
+            (i- mapHeight/2), 
             mapHeight/fov, 
             color);
+
+
+          for(uint j = 0; j < seenEntities.size(); j++) {
+            //If the raycast line intersects the enemy hitbox, draw a line for it
+            entity@ e = seenEntities[j];
+            rectangle@ rect = e.base_rectangle();
+
+            float r1x = e.x() + rect.left();
+            float r1y = e.y() + rect.top();
+            float r2x = e.x() + rect.right();
+            float r2y = e.y() + rect.bottom();
+
+            float x, y, t;
+            //check if the current raycast intersects the entity
+            if(line_rectangle_intersection(pos.x, pos.y, targetX, targetY, 
+            r1x, r1y, r2x, r2y, x, y, t)) {
+              dist = abs((pos.x) - ((r1x+r2x)/2));
+              c.draw_line(
+              -enemy_width/sqrt(dist), 
+              (i- mapHeight/2), 
+              enemy_width/sqrt(dist), 
+              (i- mapHeight/2), 
+              mapHeight/fov, 
+              PURPLE);
+            }
           }
-          /*c.draw_line(
-          pos.x, 
-          pos.y, 
-          pos.x + mapHeight * cos((i/fov)*fov*DEG2RAD) * facing,
-          pos.y + mapHeight * sin((i/fov)*fov*DEG2RAD) * facing, 5, BLUE);*/
     }
   }
 
+  void updateSeenEntities() {
+    dustman@ dm = player.as_dustman();
+    seenEntities.resize(0);
+    float left = facing == -1 ? dm.x() - enemy_scan_distance : dm.x();
+    float right = facing == 1 ? dm.x() + enemy_scan_distance : dm.x();
+    int num = g.get_entity_collision(
+      dm.y()-enemy_scan_distance, 
+      dm.y()+enemy_scan_distance, 
+      left,
+      right, 7);
+
+    array<entity@> ret;
+    for(int i = 0; i < num; i++) {
+      entity@ e = g.get_entity_collision_index(i);
+
+      //Ignore all dustman entities
+      if(e.as_dustman() != null) {
+        continue;
+      }
+
+      @ray = g.ray_cast_tiles(dm.x(),dm.y(),e.x(),e.y());
+      //Entity not behind wall
+      if(!ray.hit()) {
+        seenEntities.insertLast(e);
+      }
+    }
+  }
+
+
+
+  uint getBaseColor(uint collisionType, uint divisor) {
+    uint baseColor = WHITE;
+    if(collisionType == 0) {
+      baseColor = RGBBLUE;
+      baseColor /= divisor;
+    } else if( collisionType > 0 && collisionType < 6) {
+      baseColor = RGBGREEN;
+    } else {
+      baseColor = RGBRED;
+      baseColor /= divisor;
+    }
+
+    return baseColor;
+  }
 
    void debug_draw() {
     c.draw_rectangle(0, 0, mapWidth, mapHeight, 0, WHITE);
