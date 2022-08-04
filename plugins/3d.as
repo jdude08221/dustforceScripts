@@ -79,7 +79,9 @@ class script {
       float targetY = pos.y + r*sin(theta);
 
       @ray = g.ray_cast_tiles(pos.x, pos.y,  targetX,  targetY);
-
+      if!(ray.hit()) {
+        continue;
+      }
       float rx = ray.hit() ? ray.hit_x() : targetX;
       float ry = ray.hit() ? ray.hit_y() : targetY;
 
