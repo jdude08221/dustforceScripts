@@ -11,13 +11,14 @@ const float realScreenW = 1600;
 const float realScreenH = 900;
 const float mapWidth = 533;
 const float mapHeight = 300;
+const float halfMapHeight = mapHeight / 2;
 const float fov = 90;
 const float hitbox_half = 45;
 const float block_width = 2000;
 const float enemy_width = 1000;
 const float enemy_scan_distance = 2000;
 const int INT_MAX = 2147483647;
-
+const uint ENEMY_COLOR = PURPLE & 0x00926EAE | 0xCC000000;
 class script {
   [text] bool debugEnabled = true;
   scene@ g;
@@ -120,20 +121,25 @@ class script {
     //Empty drawnLines array
     drawnLines.resize(0);
     uint baseColor = WHITE;
+
+    //length of the raycasts in pixels
     float r = 4000;
+
     uint color = BLUE;
     Line@ l; //the line to draw
     uint entityColor = PURPLE & 0x00926EAE | 0xCC000000;
-
+    
+    //Do all the raycasts for each horizontal line drawn to the screen
     for(float i = 1; i < mapHeight; i++) {
-      float yDrawValue = i- mapHeight/2;
+      float yDrawValue = i- halfMapHeight;
+
+      //Angle of the raycast. Used for polar coordinate calculation
       float theta = (i/mapHeight * fov - (fov/2) + facing_angle) * DEG2RAD;
       float targetX = pos.x + r*cos(theta) * facing;
       float targetY = pos.y + r*sin(theta);
-
       @ray = g.ray_cast_tiles(pos.x, pos.y,  targetX,  targetY, ray);
 
-      //Pixel cooridnates of the raycast. If the raycast 
+      //Pixel cooridnates of the raycast. If the raycast doesnt hit anything, just set its value to be the destination
       float rx = ray.hit() ? ray.hit_x() : targetX;
       float ry = ray.hit() ? ray.hit_y() : targetY;
       float dist = abs(pos.x - rx);
@@ -143,9 +149,9 @@ class script {
       int ty = ray.tile_y();
 
       //Check if this ray hit the same tile as the previous raycast
-      bool sameAsPrevTile = lastTileX == int(tx) && lastTileY == int(ty);
-      lastTileX = (tx);
-      lastTileY = (ty);
+      bool sameAsPrevTile = lastTileX == tx && lastTileY == ty;
+      lastTileX = tx;
+      lastTileY = ty;
 
       //Get tile hit by raycast. If its the same as the previously hit tile, 
       //just reuse the tile from last iteration
@@ -178,13 +184,13 @@ class script {
         color = baseColor;
         
         Line@ l;
-        
+
         if(debugEnabled) {
           @l = Line(pos.x, pos.y, rx, ry);
         } else if(ray.hit()){
           float sq = sqrt(dist);
           float x1 = -block_width/sq;
-          float y1 = (i- mapHeight/2);
+          float y1 = (i- halfMapHeight);
           @l = Line(x1, y1, -x1, y1);
         }
 
@@ -198,26 +204,32 @@ class script {
           entity@ e = seenEntities[j];
           rectangle@ rect = e.base_rectangle();
 
+          //Get the corner coordinates of the enemy's rectangle object
           float r1x = e.x() + rect.left();
           float r1y = e.y() + rect.top();
           float r2x = e.x() + rect.right();
           float r2y = e.y() + rect.bottom();
 
+          //These three values are unused
           float x, y, t;
+
           //check if the current raycast intersects the entity
           if(line_rectangle_intersection(pos.x, pos.y, targetX, targetY,
           r1x, r1y, r2x, r2y, x, y, t)) {
+            //Get distance from the enemy to the camera plane
             dist = abs((pos.x) - ((r1x+r2x)/2));
+
             float sq = sqrt(dist);
             float x1 = -enemy_width/sq;
-            float y1 = (i- mapHeight/2);
+            float y1 = (i- halfMapHeight);
+            Line@ l;
             if(!debugEnabled) {
-              Line@ l = Line(x1, y1, -x1, y1);
-              coloredLine @colLine = coloredLine(l, PURPLE & 0x00926EAE | 0xCC000000);
-              drawnLines.insertLast(colLine);
+              @l = Line(x1, y1, -x1, y1);
             } else {
-              Line@ l = Line(pos.x, pos.y, rx, ry);
-              coloredLine @colLine = coloredLine(l,  PURPLE & 0x00926EAE | 0xCC000000);
+              @l = Line(pos.x, pos.y, rx, ry);
+            }
+            if(@l != null) {
+              coloredLine @colLine = coloredLine(l,  ENEMY_COLOR);
               drawnLines.insertLast(colLine);
             }
           }
@@ -242,7 +254,6 @@ class script {
   void updateSeenEntities() {
     array<entity@> ret;
     dustman@ dm = player.as_dustman();
-
     seenEntities.resize(0);
     float left = facing == -1 ? dm.x() - enemy_scan_distance : dm.x();
     float right = facing == 1 ? dm.x() + enemy_scan_distance : dm.x();
