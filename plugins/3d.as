@@ -62,7 +62,6 @@ class script {
       }
     }
   }
-
   
   void step(int) {
   /* Returns the y coordinate of the mouse in the hud coordinate space. If scale
@@ -104,6 +103,12 @@ class script {
    void draw(float sub_frame) {
       drawLines();
    }
+
+  void editor_step() {
+    for(uint i = 6; i < 21; i++) {
+      g.layer_visible(i, true);
+    }
+  }
 
   void disableAllMovement(dustman@ dm, bool disable) {
     if(!disable) {
@@ -279,12 +284,6 @@ class script {
     }
   }
 
-  void editor_step() {
-    for(uint i = 6; i < 21; i++) {
-      g.layer_visible(i, true);
-    }
-  }
-
   bool isDustblock(tileinfo@ ti) {
     //Check the various dustblock sprite sets
     switch (ti.sprite_set()) {
@@ -303,8 +302,6 @@ class script {
     }
     return false;
   }
-
-
 
  uint getBaseColor(tileinfo@ ti, uint collisionType, uint divisor) {
     uint baseColor = WHITE;
