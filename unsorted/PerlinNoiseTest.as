@@ -12,7 +12,7 @@ class script {
   [text] bool debug = false;
   [text] bool drawGridOn = false;
   
-  uint resolution = 10;
+  uint resolution = 30;
   uint cols, rows;
 
   uint debugCounter = 0;
@@ -21,7 +21,7 @@ class script {
   array<float> perlinNoise2d;
   array<textfield@> tf(0);
 
-  uint outputSize = 200;
+  uint outputSize = 600;
   uint frame_count = 0;
 
   array<array<Vec2@>> lines;

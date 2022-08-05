@@ -47,6 +47,10 @@ const uint PURPLEMOUNTAINSMAJESTY = 0xFF9D81BA;
 const uint SEPIA = 0xFFA5694F;
 const uint RAWSIENNA = 0xFFD68A59;
 const uint TUMBLEWEED = 0xFFDEAA88;
+const uint RGBBLUE = 0x000000FF;
+const uint RGBRED = 0x00FF0000;
+const uint RGBGREEN = 0x0000FF00;
+const uint RGBALPHA = 0xFF000000;
 
 const array<uint> COLOR_LIST = {
   WHITE,

@@ -39,6 +39,7 @@ class script {
 
     if(stepCount % 2 == 0 and curFrame < frames.size()) {
       t.text(decompress(frames[curFrame]));
+      //puts(decompress(frames[curFrame]));
       curFrame++;
     } 
     

@@ -1,6 +1,6 @@
 @ECHO OFF
 if not exist "frames" mkdir frames
-ffmpeg -i %1 -vf fps=10 frames/out%%d.png
+ffmpeg -i %1 -vf fps=6 frames/out%%d.png
 cd frames
 magick mogrify -define png:format=png32 -format png *.png
 for /f %%A in ('dir ^| find "File(s)"') do set cnt=%%A

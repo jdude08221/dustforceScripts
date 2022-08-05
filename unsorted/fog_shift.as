@@ -1,6 +1,6 @@
-#include "lib/math/math.cpp";
-#include "lib/utils/colour.cpp";
-#include "jlib/const/ColorConsts.as"
+#include "../lib/math/math.cpp";
+#include "../lib/utils/colour.cpp";
+#include "../jlib/const/ColorConsts.as"
 const uint NUM_PLAYERS = 4;
 
 

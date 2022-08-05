@@ -28,6 +28,9 @@ class script {
   int facing = 1;
   uint lastColor = 0;
   uint raycastDebugCount = 0;
+  float facing_angle = 0;
+  float mouse_x = 0;
+  float mouse_y = 0;
   script() {
     @g = get_scene();
     @c = create_canvas(true, 0, 0);
@@ -48,6 +51,14 @@ class script {
 
   
   void step(int) {
+
+  /* Returns the y coordinate of the mouse in the hud coordinate space. If scale
+   * is set to true will auto scale the coordinates to simulate a 1600-900
+   * screen size. Will range between -height/2 and height/2.
+   */
+    mouse_x = g.mouse_x_hud(0);
+    mouse_y = g.mouse_y_hud(0);
+    facing_angle = (mouse_y/900) * (60);
     if(player is null) {
       @player = controller_controllable(0);
       return;
@@ -73,13 +84,14 @@ class script {
       dustman@ dm = player.as_dustman();
       float r = 4000;
       uint color = BLUE;
-      float theta = i == 0 ? 0 : (i/mapHeight * fov - fov/3)*DEG2RAD;
+      //-450 to 450
+      float theta = i == 0 ? 0 : (i/mapHeight * fov - (fov/3) + facing_angle)*DEG2RAD;
 
       float targetX = pos.x + r*cos(theta) * facing;
       float targetY = pos.y + r*sin(theta);
 
       @ray = g.ray_cast_tiles(pos.x, pos.y,  targetX,  targetY);
-      if!(ray.hit()) {
+      if(!ray.hit()) {
         continue;
       }
       float rx = ray.hit() ? ray.hit_x() : targetX;
@@ -112,11 +124,11 @@ class script {
 
         baseColor |= RGBALPHA;
         color = baseColor;
-      
+          float sq = sqrt(dist);
           c.draw_line(
-          -block_width/sqrt(dist), 
+          -block_width/sq, 
           (i- mapHeight/2), 
-          block_width/sqrt(dist), 
+          block_width/sq, 
           (i- mapHeight/2), 
           mapHeight/fov, 
           color);
@@ -137,10 +149,11 @@ class script {
           if(line_rectangle_intersection(pos.x, pos.y, targetX, targetY,
           r1x, r1y, r2x, r2y, x, y, t)) {
             dist = abs((pos.x) - ((r1x+r2x)/2));
+            float sq = sqrt(dist);
             c.draw_line(
-            -enemy_width/sqrt(dist),
+            -enemy_width/sq,
             (i- mapHeight/2),
-            enemy_width/sqrt(dist),
+            enemy_width/sq,
             (i- mapHeight/2),
             mapHeight/fov,
             PURPLE & 0x00926EAE | 0xCC000000);

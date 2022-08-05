@@ -1,7 +1,6 @@
 #include "../../../lib/ui/Button.cpp"
 #include "../../../lib/ui/label.cpp"
 class LabelButton : ButtonClickHandler, callback_base {
-  private float BUTTON_HEIGHT = 34;
   private float SIZE = 10;
   //Button
   UI@ ui;
@@ -11,24 +10,39 @@ class LabelButton : ButtonClickHandler, callback_base {
   Rect border;
   string callback;
 
-  LabelButton(UI@ ui, float X1, float Y1, string callback_name, string labelText) {
+  LabelButton(UI@ ui, float X1, float Y1, string callback_name, string labelText, float inHeight = 34) {
     @g = get_scene();
     @this.ui = ui;
     @this.mouse = ui.mouse;
+
     border = Rect(X1, Y1, X1 + SIZE, Y1 + SIZE);
-    const float height = BUTTON_HEIGHT - ui.padding * 2;
+    const float height = inHeight - ui.padding * 2;
     @button = Button(ui, Label(ui, labelText));
     button.fit_to_height(height);
     @button.click_listener = this;
     callback = callback_name;
   }
 
+
+  void draw(bool drawBorder, bool drawBackground) {
+    if(button.is_mouse_over) {
+      update_label_colour(0xFFFFFF00);
+    } else {
+      update_label_colour(0xFFFFFFFF);
+    }
+    button.draw(g, getRect(), drawBorder, drawBackground);
+  }
+
   void draw() {
-    button.draw(g, getRect());
+    button.draw(g, getRect(), true, true);
   }
 
   void step() {
     button.update(g, getRect());
+  }
+
+  void update_label_colour(uint colour) {
+    cast<Label@>(button.icon).update_text_colour(colour);
   }
 
   Rect@ getButtonRect() {

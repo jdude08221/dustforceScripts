@@ -1,16 +1,16 @@
 const int NUM_FRAMES = 11; 
-const string EMBED_out0 = "frames/out0.png";
-const string EMBED_out1 = "frames/out1.png";
-const string EMBED_out2 = "frames/out2.png";
-const string EMBED_out3 = "frames/out3.png";
-const string EMBED_out4 = "frames/out4.png";
-const string EMBED_out5 = "frames/out5.png";
-const string EMBED_out6 = "frames/out6.png";
-const string EMBED_out7 = "frames/out7.png";
-const string EMBED_out8 = "frames/out8.png";
-const string EMBED_out9 = "frames/out9.png";
-const string EMBED_out10 = "frames/out10.png";
-const string EMBED_out11 = "frames/out11.png";
+const string EMBED_out0 = "frames_twelve_idle/out0.png";
+const string EMBED_out1 = "frames_twelve_idle/out1.png";
+const string EMBED_out2 = "frames_twelve_idle/out2.png";
+const string EMBED_out3 = "frames_twelve_idle/out3.png";
+const string EMBED_out4 = "frames_twelve_idle/out4.png";
+const string EMBED_out5 = "frames_twelve_idle/out5.png";
+const string EMBED_out6 = "frames_twelve_idle/out6.png";
+const string EMBED_out7 = "frames_twelve_idle/out7.png";
+const string EMBED_out8 = "frames_twelve_idle/out8.png";
+const string EMBED_out9 = "frames_twelve_idle/out9.png";
+const string EMBED_out10 = "frames_twelve_idle/out10.png";
+const string EMBED_out11 = "frames_twelve_idle/out11.png";
 class script : callback_base{
   int frame_count;
   int draw_frame_count;
@@ -21,7 +21,7 @@ class script : callback_base{
   [text] int sublayer;
   [slider, min:.1, max:10] float scale;
   [text] bool showSprite;
- 
+ [angle] float angle;
   [position,mode:world,layer:19,y:Y1] float X1;
 
   [hidden] float Y1;
@@ -70,7 +70,7 @@ class script : callback_base{
 
   void editor_draw(float subframe) {
     if(showSprite) {
-      spr.draw_world(layer, sublayer, framesGlobal[0], 0, 1, X1, Y1, 0, scale, scale, 0xFFFFFFFF);
+      spr.draw_world(layer, sublayer, framesGlobal[0], 0, 1, X1, Y1, angle, scale, scale, 0xFFFFFFFF);
     }
   }
 
@@ -79,7 +79,7 @@ class script : callback_base{
   }
 
   void draw(float subframe) {    
-    spr.draw_world(layer, sublayer, framesGlobal[curSpriteIndex % NUM_FRAMES], 0, 1, X1, Y1, 0, scale, scale, 0xFFFFFFFF);
+    spr.draw_world(layer, sublayer, framesGlobal[curSpriteIndex % NUM_FRAMES], 0, 1, X1, Y1, angle, scale, scale, 0xFFFFFFFF);
     draw_frame_count++;
   }
 }
