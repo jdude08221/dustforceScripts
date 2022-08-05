@@ -9,8 +9,8 @@
 const float tileSize = 48;
 const float realScreenW = 1600;
 const float realScreenH = 900;
-const float mapWidth = 400;
-const float mapHeight = 250;
+const float mapWidth = 533;
+const float mapHeight = 300;
 const float fov = 90;
 const float hitbox_half = 45;
 const float block_width = 2000;
@@ -100,7 +100,7 @@ class script {
 
   void doRaycast() {
     drawnLines.resize(0);
-    for(float i = 0; i < mapHeight; i++) {
+    for(float i = 1; i < mapHeight; i++) {
       if(player == null)
         return;
 
@@ -108,40 +108,39 @@ class script {
       float r = 4000;
       uint color = BLUE;
       //-450 to 450
-      float theta = i == 0 ? 0 : (i/mapHeight * fov - (fov/2) + facing_angle)*DEG2RAD;
+      float theta = (i/mapHeight * fov - (fov/2) + facing_angle) * DEG2RAD;
 
       float targetX = pos.x + r*cos(theta) * facing;
       float targetY = pos.y + r*sin(theta);
 
       @ray = g.ray_cast_tiles(pos.x, pos.y,  targetX,  targetY, ray);
       if(!ray.hit() && !debugEnabled) {
-        continue;
+        //continue;
       }
       float rx = ray.hit() ? ray.hit_x() : targetX;
       float ry = ray.hit() ? ray.hit_y() : targetY;
       float dist = abs(pos.x - rx);
       
-      int tx = rx / 48.0;
-      int ty = ry / 48.0;
-      if(facing == -1)
-        tx --;
+      int tx = ray.tile_x();
+      int ty = ray.tile_y();
       //  void draw_rectangle_world(uint layer, uint sub_layer, float x1, float y1,
       //float x2, float y2, float rotation, uint colour);
-      //g.draw_rectangle_world(20,20, tx*48, ty*48, tx*48+48, ty*48+48, 0, WHITE);
-      g.draw_rectangle_world(20,20, rx-5,ry-5, rx+5, ry+5, 0, RED);
+      g.draw_rectangle_world(20,20, tx*48, ty*48, tx*48+48, ty*48+48, 0, WHITE);
+      //g.draw_rectangle_world(20,20, rx-5,ry-5, rx+5, ry+5, 0, RED);
       bool sameAsPrevTile = lastTileX == int(tx) && lastTileY == int(ty);
       lastTileX = (tx);
       lastTileY = (ty);
-      
+
       //Get tile hit by raycast
       if(!sameAsPrevTile) {
         @tf = g.get_tile_filth(tx, ty);
         @ti = g.get_tile(tx, ty);
       }
+
       uint baseColor = WHITE;
+
       /* Returns 0-3 indicating the side of the edge hit from
       * top, bottom, left, right in that order. */
-
       switch(ray.tile_side()) {
         case 0://top
           baseColor = getBaseColor(ti, tf.top(), 1);
@@ -167,11 +166,10 @@ class script {
           Line@ l = Line(pos.x, pos.y, rx, ry);
           coloredLine @colLine = coloredLine(l, color);
           drawnLines.insertLast(colLine);
-        } else {
+        } else if(ray.hit()){
           float sq = sqrt(dist);
           float x1 = -block_width/sq;
           float y1 = (i- mapHeight/2);
-
           Line@ l = Line(x1, y1, -x1, y1);
           coloredLine @colLine = coloredLine(l, color);
           drawnLines.insertLast(colLine);
