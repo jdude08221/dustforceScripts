@@ -51,6 +51,9 @@ class script {
 
   int lastTileX = INT_MAX;
   int lastTileY = INT_MAX;
+
+  bool clicked = false;
+
   script() {
     @g = get_scene();
     @c = create_canvas(true, 0, 0);
@@ -74,12 +77,21 @@ class script {
    * is set to true will auto scale the coordinates to simulate a 1600-900
    * screen size. Will range between -height/2 and height/2.
    */
-    mouse_y = g.mouse_y_hud(0);
-    mouse_x = g.mouse_x_hud(0);
+    
     if(player is null) {
       @player = controller_controllable(get_active_player());
       setupDMPhysics(player.as_dustman());
       return;
+    }
+
+    mouse_y = g.mouse_y_hud(get_active_player());
+    mouse_x = g.mouse_x_hud(get_active_player());
+
+    if(g.mouse_state(get_active_player()) & 4 == 4 && !clicked) {
+      shoot(player.as_dustman());
+      clicked = true;
+    } else if(g.mouse_state(get_active_player()) & 4 != 4) {
+      clicked = false;
     }
 
     if(debugEnabled) {
@@ -120,6 +132,9 @@ class script {
       c.draw_rectangle(0, 0, 10, 10, 0, WHITE);
    }
 
+  void shoot(dustman@ dm) {
+    puts("BANG!");
+  }
   void editor_step() {
     for(uint i = 6; i < 21; i++) {
       g.layer_visible(i, true);
