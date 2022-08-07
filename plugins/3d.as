@@ -108,12 +108,9 @@ class script {
   float getLookingAngle(LOOKING_ANGLE a) {
     switch (a) {
       case LOOKING_ANGLE::DOWN:
-        puts("DOWN");
         return 30;
       case LOOKING_ANGLE::UP:
-      puts("UP");
         return -30;
-        puts("MIDDLE");
       case LOOKING_ANGLE::MIDDLE:
         return 0;
     }
@@ -122,7 +119,6 @@ class script {
 
   void cycleLookAngle() {
     lookAngle = LOOKING_ANGLE(int(lookAngle + 1) % int(LOOKING_ANGLE::SIZE));
-    puts("CYCLE "+lookAngle);
   }
 
    void draw(float sub_frame) {
