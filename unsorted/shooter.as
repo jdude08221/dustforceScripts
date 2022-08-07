@@ -7,25 +7,20 @@
 #include "../lib/math/Line.cpp"
 
 const float tileSize = 48;
-const float realScreenW = 1600;
-const float realScreenH = 900;
-const float mapWidth = 533;
-const float mapHeight = 300;
-const float halfMapHeight = mapHeight / 2;
-const float fov = 90;
+const float realScreen_H = 900;
+const float realScreen_W = 1600;
+const float map_height = 300;
+const float map_width = 534;
+const float halfmap_width = map_width / 2;
+const float fov = 60;
 const float hitbox_half = 45;
-const float block_width = 25000;
-const float enemy_width = 10000;
+const float block_height = 60000;
+const float enemy_height = 1000;
 const float enemy_scan_distance = 2000;
 const int INT_MAX = 2147483647;
 const uint ENEMY_COLOR = PURPLE & 0x00926EAE | 0xCC000000;
 
-enum LOOKING_ANGLE {
-  MIDDLE = 0,
-  DOWN = 1,
-  UP = 2,
-  SIZE = 3
-}
+const float speed = 15;
 
 class script {
   [text] bool debugEnabled = false;
@@ -46,10 +41,14 @@ class script {
   float facing_angle = 0;
   float mouse_x = 0;
   float mouse_y = 0;
-  float count_lines = mapHeight/fov;
-  float screenScaleX = realScreenW / mapWidth;
-  float screenScaleY = realScreenH / mapHeight;
-  LOOKING_ANGLE lookAngle = LOOKING_ANGLE::MIDDLE;
+  float count_lines = map_width/fov;
+  bool looking = false;
+  float screenScaleX = realScreen_W / map_width;
+  float screenScaleY = realScreen_H / map_height;
+
+  uint lineDrawChecker = 0;
+  uint frameCount = 0;
+
   int lastTileX = INT_MAX;
   int lastTileY = INT_MAX;
   script() {
@@ -76,9 +75,10 @@ class script {
    * screen size. Will range between -height/2 and height/2.
    */
     mouse_y = g.mouse_y_hud(0);
-    
+    mouse_x = g.mouse_x_hud(0);
     if(player is null) {
       @player = controller_controllable(get_active_player());
+      setupDMPhysics(player.as_dustman());
       return;
     }
 
@@ -89,50 +89,80 @@ class script {
     }
 
     dustman@ dm = player.as_dustman();
+    move(dm);
     pos.x = dm.x();
     pos.y = dm.y()-80;
 
+    
+
     facing = dm.attack_state() != 0 ? dm.attack_face() : dm.face();
+    debugEnabled = dm.taunt_intent() == 1 ? !debugEnabled: debugEnabled;
 
-    //Use taunt to control looking up/down
-    if(dm.taunt_intent() == 1) {
-      cycleLookAngle();
-    }
-
-    facing_angle = getLookingAngle(lookAngle);
-
+    facing_angle = mouse_x/4 % 360;
+    
+    disableAllMovement(dm, looking);
     updateSeenEntities();
     doRaycast(dm);
-  }
-
-  float getLookingAngle(LOOKING_ANGLE a) {
-    switch (a) {
-      case LOOKING_ANGLE::DOWN:
-        puts("DOWN");
-        return 30;
-      case LOOKING_ANGLE::UP:
-      puts("UP");
-        return -30;
-        puts("MIDDLE");
-      case LOOKING_ANGLE::MIDDLE:
-        return 0;
-    }
-    return 0;
-  }
-
-  void cycleLookAngle() {
-    lookAngle = LOOKING_ANGLE(int(lookAngle + 1) % int(LOOKING_ANGLE::SIZE));
-    puts("CYCLE "+lookAngle);
+    frameCount++;
   }
 
    void draw(float sub_frame) {
       drawLines();
+      if(debugEnabled) {
+        g.draw_line_world(19,19,pos.x, pos.y, pos.x + 500 * cos(facing_angle*DEG2RAD), pos.y + 500*sin(facing_angle*DEG2RAD), 1, ORANGE);
+      }
    }
 
   void editor_step() {
     for(uint i = 6; i < 21; i++) {
       g.layer_visible(i, true);
     }
+  }
+
+  void setupDMPhysics(dustman@ dm) {
+    if(@dm != null) {
+      dm.fall_max(0);
+      dm.fall_accel(0);
+      dm.hover_accel(0);
+    }
+  }
+
+  void move(dustman@ dm) {
+    int forward = dm.y_intent();
+    int sideways = dm.x_intent();
+
+    float x = 0;
+    float y = 0;
+
+    if (forward == 0 && sideways != 0) {
+      float theta = (facing_angle + (90 * sideways)) * DEG2RAD;
+      x = speed * cos(theta);
+      y = speed * sin(theta);
+    } else if (forward != 0 && sideways != 0) {
+      float theta = (facing_angle + (45 * sideways)) * DEG2RAD;
+      x = -forward * speed * cos(theta);
+      y = -forward * speed * sin(theta);
+    } else if (forward != 0 && sideways == 0) {
+      float theta = (facing_angle) * DEG2RAD;
+      x = -forward * speed * cos(theta);
+      y = -forward * speed * sin(theta);
+    } 
+
+    dm.x(dm.x()+x);
+    dm.y(dm.y()+y);
+    disableAllMovement(dm, true);
+  }
+
+  void disableAllMovement(dustman@ dm, bool disable) {
+    if(!disable) {
+      return;
+    }
+    dm.x_intent(0);
+    dm.y_intent(0);
+    dm.jump_intent(0);
+    dm.heavy_intent(0);
+    dm.light_intent(0);
+    dm.dash_intent(0);
   }
 
   void doRaycast(dustman@ dm) {
@@ -148,20 +178,22 @@ class script {
     uint entityColor = PURPLE & 0x00926EAE | 0xCC000000;
     
     //Do all the raycasts for each horizontal line drawn to the screen
-    for(float i = 1; i < mapHeight; i++) {
-      float yDrawValue = i- halfMapHeight;
+    for(float i = 0; i < map_width; i++) {
 
       //Angle of the raycast. Used for polar coordinate calculation
-      float theta = (i/mapHeight * fov - (fov/2) + facing_angle) * DEG2RAD;
-      float targetX = pos.x + r*cos(theta) * facing;
+      float theta = (i/map_width * fov - (fov/2) + facing_angle) * DEG2RAD;
+      float targetX = pos.x + r*cos(theta);
       float targetY = pos.y + r*sin(theta);
+
       @ray = g.ray_cast_tiles(pos.x, pos.y,  targetX,  targetY, ray);
 
       //Pixel cooridnates of the raycast. If the raycast doesnt hit anything, just set its value to be the destination
       float rx = ray.hit() ? ray.hit_x() : targetX;
       float ry = ray.hit() ? ray.hit_y() : targetY;
-
       float dist = distance(pos.x, pos.y, rx, ry) * cos(theta - facing_angle*DEG2RAD);
+      
+      //g.draw_line_world(19,19, rx, ry, pos.x+dist, pos.y, 1, PURPLEMOUNTAINSMAJESTY);
+
       //Tile coordinates of the raycast
       int tx = ray.tile_x();
       int ty = ray.tile_y();
@@ -206,9 +238,10 @@ class script {
         if(debugEnabled) {
           @l = Line(pos.x, pos.y, rx, ry);
         } else if(ray.hit()){
-          float x1 = -block_width/dist;
-          float y1 = (i- halfMapHeight);
-          @l = Line(x1, y1, -x1, y1);
+
+          float y1 = -block_height/dist;
+          float x1 = (i- halfmap_width);
+          @l = Line(x1, -y1, x1, y1);
         }
 
         if(l != null) {
@@ -234,13 +267,14 @@ class script {
           if(line_rectangle_intersection(pos.x, pos.y, targetX, targetY,
           r1x, r1y, r2x, r2y, x, y, t)) {
             //Get distance from the enemy to the camera plane
+            dist = abs((pos.x) - ((r1x+r2x)/2));
 
-            dist = distance(pos.x, pos.y, (r1x+r2x)/2, (r1y+r2y)/2) * cos(theta - facing_angle*DEG2RAD);
-            float x1 = (enemy_width/2)/dist;
-            float y1 = (i- halfMapHeight);
+            float sq = sqrt(dist);
+            float x1 = -enemy_height/sq;
+            float y1 = (i- halfmap_width);
             Line@ l;
             if(!debugEnabled) {
-              @l = Line(-x1, y1, x1, y1);
+              @l = Line(x1, y1, -x1, y1);
             } else {
               @l = Line(pos.x, pos.y, rx, ry);
             }
@@ -257,15 +291,15 @@ class script {
     for(uint i = 0; i < drawnLines.size(); i++){
       Line l = drawnLines[i].l;
       uint col = drawnLines[i].color;
+      
       if(debugEnabled) {
         //Draw FOV lines for debug view
         g.draw_line_world(19,19,l.x1, l.y1, l.x2, l.y2, 1, col);
       } else {
-        //Draw screen lines in gameplay mode
-        c.draw_line(l.x1*3, l.y1*3, l.x2*3, l.y2*3, 3, col);
+        //Draw screen lines in gameplay mode)
+        c.draw_line(l.x1, (l.y1), l.x2, l.y2, 1, col);
       }
     }
-
   }
 
   void updateSeenEntities() {
@@ -288,15 +322,9 @@ class script {
         continue;
       }
 
-      @ray = g.ray_cast_tiles(dm.x(),dm.y()-80,e.x(),e.y());
-       
+      @ray = g.ray_cast_tiles(dm.x(),dm.y(),e.x(),e.y());
       //Entity not behind wall
       if(!ray.hit()) {
-        //Debug mode: draw lines to seen enemies
-        if(debugEnabled) {
-          g.draw_line_world(19,19,dm.x(), dm.y()-80, e.x(), e.y(), 1, WHITE);
-        }
-
         seenEntities.insertLast(e);
       }
     }
