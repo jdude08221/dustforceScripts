@@ -9,8 +9,8 @@
 const float tileSize = 48;
 const float realScreen_H = 900;
 const float realScreen_W = 1600;
-const float map_height = 300;
-const float map_width = 534;
+const float map_height = 225;
+const float map_width = 400;
 const float halfmap_width = map_width / 2;
 const float fov = 60;
 const float hitbox_half = 45;
@@ -108,9 +108,16 @@ class script {
 
    void draw(float sub_frame) {
       drawLines();
+      drawAimer();
       if(debugEnabled) {
         g.draw_line_world(19,19,pos.x, pos.y, pos.x + 500 * cos(facing_angle*DEG2RAD), pos.y + 500*sin(facing_angle*DEG2RAD), 1, ORANGE);
       }
+   }
+
+   void drawAimer() {
+      //void draw_rectangle(float x1, float y1,
+      //float x2, float y2, float rotation, uint colour);
+      c.draw_rectangle(0, 0, 10, 10, 0, WHITE);
    }
 
   void editor_step() {
@@ -297,7 +304,7 @@ class script {
         g.draw_line_world(19,19,l.x1, l.y1, l.x2, l.y2, 1, col);
       } else {
         //Draw screen lines in gameplay mode)
-        c.draw_line(l.x1, (l.y1), l.x2, l.y2, 1, col);
+        c.draw_line(l.x1*4, l.y1*4, l.x2*4, l.y2*4, 1*4, col);
       }
     }
   }
