@@ -31,11 +31,11 @@ class script : callback_base {
   void step(int) {
     handle_hit_entities();
     if(play_impact_heavy) {
-      g.play_sound("sfx_impact_heavy_1", 3, 0, 1, false, false);
-      g.play_sound("sfx_poly_heavy", 3, 0, 1, false, false);
+      play_effect("sfx_impact_heavy_1");
+      play_effect("sfx_poly_heavy");
       play_impact_heavy = false;
     } else if(play_impact_light) {
-      g.play_sound("sfx_poly_med", 3, 0, 1, false, false);
+      play_effect("sfx_poly_med");
       play_impact_light = false;
     }
 
@@ -47,8 +47,7 @@ class script : callback_base {
   void entity_on_add(entity@ e) {
     if(e.type_name() == "filth_ball") {
       g.remove_entity(e);
-    }
-    if(e.type_name() == "effect") {
+    } else if(e.type_name() == "effect") {
       string spriteIndex = e.sprite_index();
       //For virtual characters, effects start with letter v
       int charLoc = spriteIndex.substr(0,1) == "v" ? 3 : 2;
@@ -63,16 +62,22 @@ class script : callback_base {
     }
   }
 
+  void play_effect(string sfx_name) {
+    g.play_sound(sfx_name, 3, 0, 1, false, false);
+  }
+
   //Call this function every step. This function traverses the dictionary of all corpses that should be flying,
   //handles stepping them, and handles cleaning them up
   void handle_hit_entities() {
     array<string> dict_keys = enemies.getKeys();
+
     for(uint i = 0; i < dict_keys.size(); i++) {
       flying_corpse@ f = cast<flying_corpse@>(enemies[dict_keys[i]]);
+      int corpse_id = f.dead_c.as_entity().id();
       
       //If an enemy has collided with a wall, mark it for cleanup
-      if(bounced_enemies.exists(""+f.dead_c.as_entity().id())) {
-        bounced_enemies.delete(""+f.dead_c.as_entity().id());
+      if(bounced_enemies.exists(""+corpse_id)) {
+        bounced_enemies.delete(""+corpse_id);
         f.kill = true;
       }
 
@@ -128,7 +133,6 @@ class script : callback_base {
   }
 
   void player_hit_callback(controllable@ attacker, controllable@ attacked, hitbox@ attack_hitbox, int arg) {
-    //Unsure if this is possible, but checking nonetheless
     if(@attacked == null || @attacked.as_hittable() == null) {
       return;
     }
@@ -164,7 +168,7 @@ class script : callback_base {
 class flying_corpse {
   scene@ g;
   controllable@ dead_c; //Handle to the dead controllable
-  uint timer = 0; //Timer which counts down how long until the enemy auto cleans
+  int timer = 0; //Timer which counts down how long until the enemy auto cleans
   uint player = 0; //Which player hit this corpse 
   float speed = 15; //Speed the enemy translates away
   float rotation_speed = 15; //How fast enemy should rotate when flying
@@ -197,6 +201,23 @@ class flying_corpse {
     removed = false;
   }
 
+  /* Each flying corpse needs to be stepped each frame */
+  void step() {
+    entity@ e = dead_c.as_entity();
+    if(!setup) {
+      setup = true;
+      //Move entity slightly off surface to avoid clipping
+    } else if(timer > 0 && !kill) {
+      fly();
+      timer--;
+    } else if(!dead) {
+      die();
+      dead = true;
+    } else {
+      removed = true;
+    }
+  }
+
   /* Called when corpse needs to be rotated and translated.*/
   void fly() {
     entity@ e = dead_c.as_entity();
@@ -209,6 +230,30 @@ class flying_corpse {
     float delta_y = diry == 0 ? e.y() - speed/2: e.y() - (speed * diry);
     e.y(delta_y);
     e.rotation(e.rotation() + rotation_speed);
+  }
+
+  /* Call to mark corpse for cleanup and clean next frame */
+  void die() {
+    controllable@ c;
+    if(@controller_entity(0) != null && @controller_entity(0).as_controllable() != null) {
+      @c = controller_entity(0).as_controllable();
+    } else {
+      g.remove_entity(dead_c.as_entity());
+      give_aircharges();
+      return;
+    }
+
+    hittable@ h = @dead_c.as_hittable();
+    //If for whatever reason the enemy is null, just give aircharges back and return
+    if(@h == null) {
+      give_aircharges();
+      return;
+    }
+    
+    //Do not spawn another hitbox on apples as they cant die
+    if(dead_c.type_name() != "hittable_apple") {
+      finish_enemy(c, h);
+    }
   }
 
   /* Used to offset the corpse by some hand picked values to try and help alleviate clipping. Basically
@@ -235,49 +280,12 @@ class flying_corpse {
     }
   }
 
-  /* Call to mark corpse for cleanup and clean next frame */
-  void die() {
-    controllable@ c;
-    if(@controller_entity(0) != null && @controller_entity(0).as_controllable() != null) {
-      @c = controller_entity(0).as_controllable();
-    } else {
-      g.remove_entity(dead_c.as_entity());
-      give_aircharges();
-      return;
-    }
-
-    hittable@ h = dead_c.as_hittable();
-    if(@h == null) {
-      give_aircharges();
-      return;
-    }
-    
-    //Do not spawn another hitbox on apples as they cant die
-    if(dead_c.type_name() == "hittable_apple") {
-      return;
-    }
-    //Set enemy's life to -1 and spawn a hitbox to clean it. Use whatever attack type dustman used
+  /* Call to set the enemy's life to -1 and spawn a hitbox on it to finish it off */
+  void finish_enemy(controllable@ c, hittable@ h) {
     h.life(-1);
     hitbox@ hb = create_hitbox(@c, 0, dead_c.x(), dead_c.y(), -1, 1, -1, 1);
     hb.damage(damage);
     g.add_entity(hb.as_entity());
     give_aircharges();
-  }
-
-  /* Each flying corpse needs to be stepped each frame */
-  void step() {
-    entity@ e = dead_c.as_entity();
-    if(!setup) {
-      setup = true;
-      //Move entity slightly off surface to avoid clipping
-    } else if(timer > 0 && !kill) {
-      fly();
-      timer--;
-    } else if(!dead) {
-      die();
-      dead = true;
-    } else {
-      removed = true;
-    }
   }
 }
