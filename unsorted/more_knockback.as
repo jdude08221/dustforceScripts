@@ -82,9 +82,18 @@ class script : callback_base {
   }
 
   void entity_on_add(entity@ e) {
+    if(e.type_name() == "filth_ball") {
+      g.remove_entity(e);
+    }
     if(e.type_name() == "effect") {
-      string effect_name_suffix = e.sprite_index().substr(2);
-      
+      string spriteIndex = e.sprite_index();
+      //For virtual characters, effects start with letter v
+      int charLoc = spriteIndex.substr(0,1) == "v" ? 3 : 2;
+
+      //Attempt to strip character specific characters off of sprite index
+      string effect_name_suffix = spriteIndex.substr(charLoc);
+
+      //Check if substring matches one of the attack direction sprites to determine attack direction
       if(V_ATTACK_DIRS.exists(effect_name_suffix)) {
         attackDir = int(V_ATTACK_DIRS[effect_name_suffix]);
       }
@@ -99,6 +108,9 @@ class script : callback_base {
   }
 
   void player_hit_callback(controllable@ attacker, controllable@ attacked, hitbox@ attack_hitbox, int arg) {
+    if(@attacked == null) {
+      return;
+    }
     hittable@ h = attacked.as_hittable();
     if(@h == null) {
       return;
@@ -157,8 +169,9 @@ class flying_corpse {
       offset = true;
       if(diry != 0) {
         float newspeed = e.y() + (float(diry) * speed * 5);
-        puts(newspeed+"");
         e.y(newspeed);
+      } else {
+        e.y(e.y() + speed*2);
       }
       e.x(e.x() - (dirx * speed * 6.4));
     }
@@ -176,13 +189,22 @@ class flying_corpse {
       //a.set_position(e.x(), e.y());
   }
 
+  void giveAircharges() {
+    if(@controller_controllable(player) != null) {
+      if(@controller_controllable(player).as_dustman() != null) {
+        dustman@ dm = controller_controllable(player).as_dustman();
+        dm.dash(dm.dash_max());
+      }
+    }
+  }
+
   void die() {
     controllable@ c;
-  
     if(@controller_entity(0) != null && @controller_entity(0).as_controllable() != null) {
       @c = controller_entity(0).as_controllable();
     } else {
       g.remove_entity(dead_c.as_entity());
+      giveAircharges();
       return;
     }
 
@@ -198,8 +220,9 @@ class flying_corpse {
     //Set enemy's life to -1 and spawn a hitbox to clean it. Use whatever attack type dustman used
     h.life(-1);
     hitbox@ hb = create_hitbox(@c, 0, dead_c.x(), dead_c.y(), -1, 1, -1, 1);
-    hb.damage(1);
+    hb.damage(damage);
     g.add_entity(hb.as_entity());
+    giveAircharges();
   }
 
   void step() {
