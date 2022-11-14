@@ -21,12 +21,15 @@ class script : callback_base {
   int attackDir = 2;
   bool play_impact_heavy = false;
   bool play_impact_light = false;
-
+  bool callbacks_setup = false;
+  uint count = 0;
 
   script() {
     @g = get_scene();
   }
 
+  //Call this function every step. This function traverses the dictionary of all corpses that should be flying,
+  //handles stepping them, and handles cleaning them up
   void handle_hit_entities() {
     array<string> dict_keys = enemies.getKeys();
     for(uint i = 0; i < dict_keys.size(); i++) {
@@ -69,18 +72,25 @@ class script : callback_base {
       play_impact_light = false;
     }
 
+    if(!callbacks_setup) {
+      setup_callbacks();
+    }
+  }
+
+  void setup_callbacks() {
     for(uint i = 0; i < 4; i++) {
       dustman@ dm;
     
       if(@controller_entity(i) != null && @controller_entity(i).as_dustman() != null) {
         @dm = controller_entity(i).as_dustman();
       } else {
-        return;
+        continue;
       }
       dm.on_hit_callback(this, "player_hit_callback", i);
     }
-  }
 
+    callbacks_setup = true;
+  }
   void entity_on_add(entity@ e) {
     if(e.type_name() == "filth_ball") {
       g.remove_entity(e);
@@ -116,6 +126,8 @@ class script : callback_base {
   }
 
   void player_hit_callback(controllable@ attacker, controllable@ attacked, hitbox@ attack_hitbox, int arg) {
+   // count++;
+   // puts(count+" "+attacked.type_name());
     if(@attacked == null) {
       return;
     }
@@ -147,18 +159,20 @@ class flying_corpse {
   controllable@ dead_c;
   scene@ g;
   uint timer = 0;
-  bool dead = false;
-  bool removed = false;
   uint player = 0;
   float speed = 15;
   float rotspeed = 15;
   int dirx = 0;
   int diry  = 0;
-  int damage = 1;
-  bool dirset = false;
-  bool setup = false;
-  bool kill = false;
-  bool offset = false;
+  int damage = 1; 
+  bool dead = false; //Flag used to state if the flying corpse has outlived its timer and should be cleaned one final time to get rid of it
+  bool removed = false; //Flag used to help state if this corpse has had 1 frame to die in order for whatever datastructure holding these objects to have dead
+                        //references removed
+  bool dirset = false; //Flag used to check if this entity has its directions set, could have used enums for this but decided not to
+  bool setup = false; //We need 1 frame after this entity dies in order for dustman's hit effects to spawn
+  bool kill = false; //Set this flag to true whenever you want to explode the corpse
+  bool offset = false; //Flag stating whether the flying corpse has been offset yet. This is done to alleviate some clipping
+
   flying_corpse(controllable@ c, uint time, uint p, int d, int dam) {
     @dead_c = @c;
     timer = time;
@@ -187,12 +201,6 @@ class flying_corpse {
     float delta_y = diry == 0 ? e.y() - speed/2: e.y() - (speed * diry);
     e.y(delta_y);
     e.rotation(e.rotation() + rotspeed);
-      //if(!playing) {
-        //playing = true;
-        //@a = g.play_script_stream("sound1", 2, e.x(), e.y(), true, 2);
-        //a.positional(true);
-      //}
-      //a.set_position(e.x(), e.y());
   }
 
   void giveAircharges() {
