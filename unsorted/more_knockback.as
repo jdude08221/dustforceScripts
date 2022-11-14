@@ -100,6 +100,14 @@ class script : callback_base {
     }
   }
 
+  void entity_on_remove(entity@ e) {
+    /** Called when an entity is removed from the scene. */
+    if(enemies.exists(""+e.id())) {
+       flying_corpse@ f = cast<flying_corpse@>(enemies[""+e.id()]);
+       f.kill = true;
+    }
+  }
+
   void bounce_collision_callback(controllable@ ec, tilecollision@ tc, int side, bool moving, float snap_offset, int arg) {
     ec.check_collision(tc, side, moving, snap_offset);
     if(tc.hit() && ec.type_name() != "hittable_apple") {
@@ -143,7 +151,7 @@ class flying_corpse {
   bool removed = false;
   uint player = 0;
   float speed = 15;
-  float rotspeed = 20;
+  float rotspeed = 15;
   int dirx = 0;
   int diry  = 0;
   int damage = 1;
@@ -170,8 +178,6 @@ class flying_corpse {
       if(diry != 0) {
         float newspeed = e.y() + (float(diry) * speed * 5);
         e.y(newspeed);
-      } else {
-        e.y(e.y() + speed*2);
       }
       e.x(e.x() - (dirx * speed * 6.4));
     }
@@ -210,6 +216,7 @@ class flying_corpse {
 
     hittable@ h = dead_c.as_hittable();
     if(@h == null) {
+      giveAircharges();
       return;
     }
     
