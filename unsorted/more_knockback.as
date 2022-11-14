@@ -1,24 +1,24 @@
-  const dictionary V_ATTACK_DIRS = {
-    { "groundstrikeu1", 1 },
-    { "groundstrikeu2", 1 },
-    { "groundstriked", -1 },
-    { "groundstrike1", 0},
-    { "groundstrike2", 0 },
-    { "heavyu", 1 },
-    { "heavyd", -1 },
-    { "heavyf", 0 },
+const dictionary V_ATTACK_DIRS = {
+  { "groundstrikeu1", 1 },
+  { "groundstrikeu2", 1 },
+  { "groundstriked", -1 },
+  { "groundstrike1", 0},
+  { "groundstrike2", 0 },
+  { "heavyu", 1 },
+  { "heavyd", -1 },
+  { "heavyf", 0 },
 
-    { "airstriked1", -1 },
-    { "airstriked2", -1},
-    { "airheavyd", -1 }
-  };
+  { "airstriked1", -1 },
+  { "airstriked2", -1},
+  { "airheavyd", -1 }
+};
 
 class script : callback_base {
   [text] uint timer;
   dictionary enemies;
   dictionary bounced_enemies;
   scene@ g;
-  int attackDir = 2;
+  int attack_dir = 2;
   bool play_impact_heavy = false;
   bool play_impact_light = false;
   bool callbacks_setup = false;
@@ -26,39 +26,6 @@ class script : callback_base {
 
   script() {
     @g = get_scene();
-  }
-
-  //Call this function every step. This function traverses the dictionary of all corpses that should be flying,
-  //handles stepping them, and handles cleaning them up
-  void handle_hit_entities() {
-    array<string> dict_keys = enemies.getKeys();
-    for(uint i = 0; i < dict_keys.size(); i++) {
-      flying_corpse@ f = cast<flying_corpse@>(enemies[dict_keys[i]]);
-
-      if(bounced_enemies.exists(""+f.dead_c.as_entity().id())) {
-        bounced_enemies.delete(""+f.dead_c.as_entity().id());
-        f.kill = true;
-      }
-
-      if(f.removed) {
-        enemies.delete(dict_keys[i]);
-        continue;
-      }
-
-      //We need to give one frame of leniency to get the attack direction
-      if(!f.setup) {
-        f.step();
-        continue;
-      }
-
-      //Set what direciton the prism should go, wont work in multiplayer 100%
-      if(!f.dirset && attackDir != 2) {
-        f.dirset = true;
-        f.diry = attackDir;
-      }
-
-      f.step();
-    }
   }
 
   void step(int) {
@@ -77,20 +44,6 @@ class script : callback_base {
     }
   }
 
-  void setup_callbacks() {
-    for(uint i = 0; i < 4; i++) {
-      dustman@ dm;
-    
-      if(@controller_entity(i) != null && @controller_entity(i).as_dustman() != null) {
-        @dm = controller_entity(i).as_dustman();
-      } else {
-        continue;
-      }
-      dm.on_hit_callback(this, "player_hit_callback", i);
-    }
-
-    callbacks_setup = true;
-  }
   void entity_on_add(entity@ e) {
     if(e.type_name() == "filth_ball") {
       g.remove_entity(e);
@@ -105,8 +58,42 @@ class script : callback_base {
 
       //Check if substring matches one of the attack direction sprites to determine attack direction
       if(V_ATTACK_DIRS.exists(effect_name_suffix)) {
-        attackDir = int(V_ATTACK_DIRS[effect_name_suffix]);
+        attack_dir = int(V_ATTACK_DIRS[effect_name_suffix]);
       }
+    }
+  }
+
+  //Call this function every step. This function traverses the dictionary of all corpses that should be flying,
+  //handles stepping them, and handles cleaning them up
+  void handle_hit_entities() {
+    array<string> dict_keys = enemies.getKeys();
+    for(uint i = 0; i < dict_keys.size(); i++) {
+      flying_corpse@ f = cast<flying_corpse@>(enemies[dict_keys[i]]);
+      
+      //If an enemy has collided with a wall, mark it for cleanup
+      if(bounced_enemies.exists(""+f.dead_c.as_entity().id())) {
+        bounced_enemies.delete(""+f.dead_c.as_entity().id());
+        f.kill = true;
+      }
+
+      if(f.removed) {
+        enemies.delete(dict_keys[i]);
+        continue;
+      }
+
+      //We need to give one frame of leniency to get the attack direction
+      if(!f.setup) {
+        f.step();
+        continue;
+      }
+
+      //Set what direciton the prism should go, wont work in multiplayer 100%
+      if(!f.dirset && attack_dir != 2) {
+        f.dirset = true;
+        f.diry = attack_dir;
+      }
+
+      f.step();
     }
   }
 
@@ -118,6 +105,21 @@ class script : callback_base {
     }
   }
 
+  void setup_callbacks() {
+    for(uint i = 0; i < 4; i++) {
+      dustman@ dm;
+    
+      if(@controller_entity(i) != null && @controller_entity(i).as_dustman() != null) {
+        @dm = controller_entity(i).as_dustman();
+      } else {
+        continue;
+      }
+      dm.on_hit_callback(this, "player_hit_callback", i);
+    }
+
+    callbacks_setup = true;
+  }
+
   void bounce_collision_callback(controllable@ ec, tilecollision@ tc, int side, bool moving, float snap_offset, int arg) {
     ec.check_collision(tc, side, moving, snap_offset);
     if(tc.hit() && ec.type_name() != "hittable_apple") {
@@ -126,25 +128,31 @@ class script : callback_base {
   }
 
   void player_hit_callback(controllable@ attacker, controllable@ attacked, hitbox@ attack_hitbox, int arg) {
-    if(@attacked == null) {
-      return;
-    }
-    hittable@ h = attacked.as_hittable();
-    if(@h == null) {
+    //Unsure if this is possible, but checking nonetheless
+    if(@attacked == null || @attacked.as_hittable() == null) {
       return;
     }
 
+    hittable@ h = attacked.as_hittable();
+
     if(h.life() <= attack_hitbox.damage() || attacked.type_name() == "hittable_apple") {
+      //Store the hitbox damage as we will be setting it to 0 below. It is important
+      //so the game knows the correct attack sound to play
       uint damage = attack_hitbox.damage();
 
       if(!enemies.exists(''+h.id())) {
         //Large prisms die automatically if the damage is 3, no matter what their life is
         attacked.set_collision_handler(this, "bounce_collision_callback", 0);
+
+        //Tutorial enemies are weird, handle hardcoded damage/life values as a special case here. 
+        //We need to basically do 0 damage and play the hit sounds ourselves.
         if(attacked.type_name() == "enemy_tutorial_hexagon") {
           play_impact_heavy = attack_hitbox.damage() == 3;
           play_impact_light = attack_hitbox.damage() == 1;
           attack_hitbox.damage(0);
         }
+
+        //Set the enemy to have 99 life and put it in the dictionary of currently flying enemies
         h.life(99);
         flying_corpse@ f = flying_corpse(@attacked, timer, arg, attacker.attack_face(), damage);
         enemies[''+h.id()] = @f;
@@ -154,15 +162,15 @@ class script : callback_base {
 }
 
 class flying_corpse {
-  controllable@ dead_c;
   scene@ g;
-  uint timer = 0;
-  uint player = 0;
-  float speed = 15;
-  float rotspeed = 15;
-  int dirx = 0;
-  int diry  = 0;
-  int damage = 1; 
+  controllable@ dead_c; //Handle to the dead controllable
+  uint timer = 0; //Timer which counts down how long until the enemy auto cleans
+  uint player = 0; //Which player hit this corpse 
+  float speed = 15; //Speed the enemy translates away
+  float rotation_speed = 15; //How fast enemy should rotate when flying
+  int dirx = 0; //-1 for left, 1 for right
+  int diry  = 0; //1 for up -1 for down 0 for neither
+  int damage = 1; //How much damage the killing blow was
   bool dead = false; //Flag used to state if the flying corpse has outlived its timer and should be cleaned one final time to get rid of it
   bool removed = false; //Flag used to help state if this corpse has had 1 frame to die in order for whatever datastructure holding these objects to have dead
                         //references removed
@@ -171,37 +179,54 @@ class flying_corpse {
   bool kill = false; //Set this flag to true whenever you want to explode the corpse
   bool offset = false; //Flag stating whether the flying corpse has been offset yet. This is done to alleviate some clipping
 
-  flying_corpse(controllable@ c, uint time, uint p, int d, int dam) {
+  /*arguments:
+    c: the handle to the corpse that should be flying
+    time: the time the corpse has before being cleansed
+    player_: the player number that cleaned this enemy
+    dirX_: the x direction the player hit this enemy
+    damage_: the damage of the final blow to this enemy
+   */
+  flying_corpse(controllable@ c, uint time, uint player_, int dirX_, int damage_) {
     @dead_c = @c;
     timer = time;
-    player = p;
+    player = player_;
     @g = get_scene();
-    dirx = d;
-    damage = dam;
+    dirx = dirX_;
+    damage = damage_;
     dead = false;
     removed = false;
   }
 
+  /* Called when corpse needs to be rotated and translated.*/
   void fly() {
     entity@ e = dead_c.as_entity();
-
     if(!offset) {
-      offset = true;
-      if(diry != 0) {
-        float newspeed = e.y() + (float(diry) * speed * 5);
-        e.y(newspeed);
-      }
-      e.x(e.x() - (dirx * speed * 6.4));
+      offset_corpse();
     }
 
     e.x(e.x() + (speed * dirx));
     dead_c.set_speed_xy(0,0);
     float delta_y = diry == 0 ? e.y() - speed/2: e.y() - (speed * diry);
     e.y(delta_y);
-    e.rotation(e.rotation() + rotspeed);
+    e.rotation(e.rotation() + rotation_speed);
   }
 
-  void giveAircharges() {
+  /* Used to offset the corpse by some hand picked values to try and help alleviate clipping. Basically
+   * we are moving the corpse away of the direction of travel, otherwise, the enemy might just be given some
+   * new position that is inside a tile and they will clip.
+   */
+  void offset_corpse() {
+    entity@ e = dead_c.as_entity();
+    offset = true;
+    if(diry != 0) {
+      float newspeed = e.y() + (float(diry) * speed * 5);
+      e.y(newspeed);
+    }
+    e.x(e.x() - (dirx * speed * 6.4));
+  }
+
+  /* Call to give player who did final blow to this enemy aircharges back when enemy dies */
+  void give_aircharges() {
     if(@controller_controllable(player) != null) {
       if(@controller_controllable(player).as_dustman() != null) {
         dustman@ dm = controller_controllable(player).as_dustman();
@@ -210,19 +235,20 @@ class flying_corpse {
     }
   }
 
+  /* Call to mark corpse for cleanup and clean next frame */
   void die() {
     controllable@ c;
     if(@controller_entity(0) != null && @controller_entity(0).as_controllable() != null) {
       @c = controller_entity(0).as_controllable();
     } else {
       g.remove_entity(dead_c.as_entity());
-      giveAircharges();
+      give_aircharges();
       return;
     }
 
     hittable@ h = dead_c.as_hittable();
     if(@h == null) {
-      giveAircharges();
+      give_aircharges();
       return;
     }
     
@@ -235,9 +261,10 @@ class flying_corpse {
     hitbox@ hb = create_hitbox(@c, 0, dead_c.x(), dead_c.y(), -1, 1, -1, 1);
     hb.damage(damage);
     g.add_entity(hb.as_entity());
-    giveAircharges();
+    give_aircharges();
   }
 
+  /* Each flying corpse needs to be stepped each frame */
   void step() {
     entity@ e = dead_c.as_entity();
     if(!setup) {
