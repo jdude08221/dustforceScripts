@@ -126,8 +126,6 @@ class script : callback_base {
   }
 
   void player_hit_callback(controllable@ attacker, controllable@ attacked, hitbox@ attack_hitbox, int arg) {
-   // count++;
-   // puts(count+" "+attacked.type_name());
     if(@attacked == null) {
       return;
     }
