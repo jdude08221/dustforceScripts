@@ -6,19 +6,20 @@
 class script
 {
     scene@ g;
-    editor_api@ e;
     input_api@ i;
+
     [hidden] bool is_spawn_set = false;
     [hidden] float spawn_x = 0;
     [hidden] float spawn_y = 0;
-    [entity] int test;
+
+    camera@ cam;
 
     bool enable_key_pressed = false;
     bool alt_key_pressed = false;
+    bool reset_camera = false;
 
     script() {
       @g = get_scene();
-      @e = get_editor_api();
       @i = get_input_api();
     }
 
@@ -32,13 +33,19 @@ class script
         cam.y(spawn_y);
         c.x(spawn_x);
         c.y(spawn_y);
+        reset_camera = true;
       }
     } 
 
     void step(int entities) {
       // Disable script camera as we set it to a static position in on_level_start
-      camera@ cam = get_camera(0);
-      cam.script_camera(false);
+      if(@cam == null) {
+        @cam = get_camera(0);
+      }
+      
+      if(cam.script_camera() && reset_camera) {
+        cam.script_camera(false);
+      }
     }
 
     void editor_step() {
@@ -72,7 +79,7 @@ class script
         sprites@ spr = create_sprites();
         spr.add_sprite_set("dustman");
         // void draw_world(int layer, int sub_layer, string spriteName, uint3 2 frame, uint32 palette, float x, float y, float rotation, float scale_x, float scale_y, uint32 colour);
-        spr.draw_world(19, 0, "idle", 0, 0, spawn_x, spawn_y, 0, 1, 1, 0xFF000000);
+        spr.draw_world(22, 0, "idle", 0, 0, spawn_x, spawn_y, 0, 1, 1, 0xFF000000);
       }
     }
 }
