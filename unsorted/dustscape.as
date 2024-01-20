@@ -109,13 +109,20 @@ class script : callback_base{
 
   void step(int) {
     dustman@ dm;
-
+    
     if(@controller_entity(0) != null) {
       @dm = controller_entity(0).as_dustman();
     } else {
       return;
     }
+    if(@dm == null) {
+      return;
+    }
 
+    dm.x_intent(0);
+    dm.y_intent(0);
+    dm.jump_intent(0);
+    dm.dash_intent(0);
     if(doJump) {
       dm.jump_intent(1);
       if(jumpFrames < 8) {

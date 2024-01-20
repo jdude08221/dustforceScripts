@@ -133,7 +133,13 @@ class script {
    }
 
   void shoot(dustman@ dm) {
-    puts("BANG!");
+    float targetX = pos.x + 500 * cos(facing_angle*DEG2RAD);
+    float targetY = pos.y + 500 * sin(facing_angle*DEG2RAD);
+
+    @ray = g.ray_cast_tiles(pos.x, pos.y, targetX, targetY, ray);
+
+    int tx = ray.hit() ? ray.tile_x() : 500 * cos(facing_angle*DEG2RAD);
+    int ty = ray.hit() ?  ray.tile_y() : 500 * sin(facing_angle*DEG2RAD);
   }
   void editor_step() {
     for(uint i = 6; i < 21; i++) {
@@ -272,6 +278,7 @@ class script {
         }
 
         for(uint j = 0; j < seenEntities.size(); j++) {
+          puts(seenEntities.size()+"");
           //If the raycast line intersects the enemy hitbox, draw a line for it
           entity@ e = seenEntities[j];
           rectangle@ rect = e.base_rectangle();
@@ -310,6 +317,7 @@ class script {
   }
 
   void drawLines() {
+    puts(drawnLines.size() + "");
     for(uint i = 0; i < drawnLines.size(); i++){
       Line l = drawnLines[i].l;
       uint col = drawnLines[i].color;

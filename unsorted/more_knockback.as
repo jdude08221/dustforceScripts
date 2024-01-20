@@ -257,8 +257,9 @@ class flying_corpse {
   }
 
   /* Used to offset the corpse by some hand picked values to try and help alleviate clipping. Basically
-   * we are moving the corpse away of the direction of travel, otherwise, the enemy might just be given some
-   * new position that is inside a tile and they will clip.
+   * we are moving the corpse away of the direction of travel. e.g if enemy was hit with an up-right heavy,
+   * set the position to be a bit down left from the current position. Jank but kinda works. Could use raycasting probably to 
+   * do this more precisely
    */
   void offset_corpse() {
     entity@ e = dead_c.as_entity();

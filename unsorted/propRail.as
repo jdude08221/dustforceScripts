@@ -1,9 +1,9 @@
-#include "../lib/math/Line.cpp";
-#include "../lib/props/common.cpp"
-#include "../lib/drawing/Sprite.cpp"
-#include "../lib/drawing/common.cpp"
-#include '../lib/ui/prop-selector/PropSelector.cpp';
-#include '../Alex/prop_group.as';
+#include "../../lib/math/Line.cpp";
+#include "../../lib/props/common.cpp"
+#include "../../lib/drawing/Sprite.cpp"
+#include "../../lib/drawing/common.cpp"
+#include '../../lib/ui/prop-selector/PropSelector.cpp';
+#include '../../Alex/prop_group.as';
 
 const string EMBED_spr1 = "propRail/spr1.png"; 
 const string EMBED_spr2 = "propRail/spr2.png"; 
@@ -26,7 +26,7 @@ const uint GREEN_TRANSPARENT = 0x4A00FF00;
 //TODO: trigger movement on trigger activation
 
 class script : callback_base {
-  [text]array<SpawnHelper@> spawnArr;
+  [hidden]array<SpawnHelper@> spawnArr;
   scene@ g;
   int frameCount;
   int lastTimestamp;

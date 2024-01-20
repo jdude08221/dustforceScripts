@@ -47,7 +47,7 @@ class script
       }
 
       // == 2. Collect user input
-      enable_key_pressed = i.key_check_vk(VK::Z);
+      enable_key_pressed = i.key_check_vk(VK::F);
       alt_key_pressed = i.key_check_vk(VK::Menu);
       ctrl_key_pressed = i.key_check_vk(VK::Control);
       

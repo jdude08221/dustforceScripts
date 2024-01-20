@@ -1,4 +1,4 @@
-#include "lib/utils/print_vars.cpp"
+
 const int NUM_FRAMES = 22; 
 const string EMBED_out1 = "frames/out1.png";
 const string EMBED_out2 = "frames/out2.png";

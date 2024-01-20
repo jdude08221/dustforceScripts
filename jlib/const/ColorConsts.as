@@ -7,6 +7,7 @@ const uint YELLOWORANGE = 0xFFFFB653;
 const uint YELLOW = 0xFFFCE883;
 const uint YELLOWGREEN = 0xFFC5E384;
 const uint GREEN = 0xFF1CAC78;
+const uint TRANSPARENT_GREEN = 0x331CAC78;
 const uint SKYBLUE = 0xFF80DAEB;
 const uint BLUEGREEN = 0xFF199EBD;
 const uint BLUE = 0xFF1F75FE;

@@ -1,6 +1,6 @@
 #include "../lib/drawing/Sprite.cpp"
 
-const string EMBED_spr10 = "normal_cow.png";
+const string EMBED_spr10 = "sprite.png";
 class script
 {
     scene@ g;
