@@ -12,10 +12,12 @@ class script
     [hidden] bool is_spawn_set = false;
     [hidden] float spawn_x = 0;
     [hidden] float spawn_y = 0;
+    [hidden] float facing = 1;
 
     bool enable_key_pressed = false;
     bool alt_key_pressed = false;
     bool ctrl_key_pressed = false;
+    bool dir_key_pressed = false;
 
     script() {
       @g = get_scene();
@@ -32,7 +34,7 @@ class script
         cam.y(spawn_y);
         c.x(spawn_x);
         c.y(spawn_y);
-        
+        c.face(facing);
         //== 2. After player and camera has been moved, reset camera so it centers on player ==
         cam.script_camera(false);
         reset_camera(0);
@@ -50,6 +52,7 @@ class script
       enable_key_pressed = i.key_check_vk(VK::F);
       alt_key_pressed = i.key_check_vk(VK::Menu);
       ctrl_key_pressed = i.key_check_vk(VK::Control);
+      dir_key_pressed = i.key_check_pressed_vk(VK::Left) || i.key_check_pressed_vk(VK::Right);
       
       // == 3. Update spawn while enable key (Z) is held. If alt + enable key is pressed, remove temporary spawn
       if(enable_key_pressed && !ctrl_key_pressed) { // check ctrl key to avoid false positives with ctrl+z
@@ -57,6 +60,9 @@ class script
           is_spawn_set = true;
           spawn_x = i.mouse_x_world(19);
           spawn_y = i.mouse_y_world(19);
+          if(dir_key_pressed) { // updating facing if user presses direction key
+            facing = facing == 1 ? -1 : 1;
+          }
         } else {
           is_spawn_set = false;
         }
@@ -73,7 +79,7 @@ class script
       if(is_spawn_set) {
         sprites@ spr = create_sprites();
         spr.add_sprite_set("dustman");
-        spr.draw_world(22, 0, "idle", 0, 0, spawn_x, spawn_y, 0, 1, 1, BLACK);
+        spr.draw_world(22, 0, "idle", 0, 0, spawn_x, spawn_y, 0, facing, 1, BLACK);
       }
     }
 }
