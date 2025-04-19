@@ -36,7 +36,6 @@ class script : callback_base{
     if(@player1 == null) return;
 
    if(saveAndDisable) {
-    puts("save");
     savedCombo = player1.skill_combo();
     g.special_enabled(superDisabled);
     player1.skill_combo(0);
@@ -49,6 +48,11 @@ class script : callback_base{
     reapplyAndEnable = false;
     comboSaved = false;
    }
+
+   if(player1.attack_state() == 3) {
+    // If a player supers, there should be no combo saved
+    savedCombo = 0;
+   }
   }
 }
 
@@ -59,39 +63,16 @@ class edge_trigger : trigger_base {
   controllable@ trigger_entity;
   
   void init(script@ s, scripttrigger@ self) {
-      activated = false;
-      active_this_frame = false;
-  }
-  
-  void rising_edge(controllable@ e) {
-      @trigger_entity = @e;
-      message@ msg = create_message();
-      msg.set_string('isDisable', is_disable_trigger ? "true" : "false"); 
-      broadcast_message('DisableSpecial', msg);
-  }
 
-  void falling_edge(controllable@ e) {
-      @trigger_entity = null;
-      // do stuff
   }
   
   void step() {
-      if(activated) {
-          if(!active_this_frame) {
-              activated = false;
-              falling_edge(@trigger_entity);
-          }
-          active_this_frame = false;
-      }
   }
   
   void activate(controllable@ e) {
-      if(e.player_index() == 0) {
-          if(!activated) {
-              rising_edge(@e);
-              activated = true;
-          }
-          active_this_frame = true;
-      }
+    @trigger_entity = @e;
+    message@ msg = create_message();
+    msg.set_string('isDisable', is_disable_trigger ? "true" : "false"); 
+    broadcast_message('DisableSpecial', msg);
   }
 }
