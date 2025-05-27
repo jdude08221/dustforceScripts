@@ -14,6 +14,13 @@ from tqdm import tqdm  # for progress bars
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import freeze_support
 
+class KeyTypes(IntEnum):
+    NONE = 0
+    WOOD = 4
+    SILVER = 1
+    GOLD = 2
+    RED = 3
+
 # -------------------------------------
 # Command-line Argument Parsing
 # -------------------------------------
@@ -32,7 +39,6 @@ def debug_print(message):
 CATEGORY_ROW_1 = ["ForestMap", "Mountain", "Difficult"]
 CATEGORY_ROW_2 = ["Rainlands", "Ocean"]
 
-# This dictionary will be populated with file data based on filename prefix.
 category_data = {cat: [] for cat in CATEGORY_ROW_1 + CATEGORY_ROW_2}
 
 TABLE_WIDTH = 4
@@ -43,57 +49,106 @@ CATEGORY_COLORS = {
     "ForestMap": Color(0.8, 1.0, 0.8),  # Light Green
     "Rainlands": Color(1.0, 1.0, 0.8),  # Pale Yellow
     "Mountain": Color(1.0, 0.9, 0.7),   # Beige / Light Brown
-    "Ocean": Color(0.8, 0.9, 1.0),        # Light Blue
-    "Difficult": Color(1.0, 0.8, 0.8)     # Soft Red
+    "Ocean": Color(0.8, 0.9, 1.0),      # Light Blue
+    "Difficult": Color(1.0, 0.8, 0.8)   # Soft Red
 }
 
 HEADER_COLOR = Color(0.85, 0.85, 0.85)  # Light Gray
-# Updated alternate row color for more contrast.
 ALT_ROW_COLOR = Color(0.9, 0.9, 0.9)  # A bit darker for better contrast
 
 # -----------------------------
 # Restored Missing Variables
-# (These will be recomputed after category_data is populated.)
 # -----------------------------
 START_ROW_ROW1 = 1
-max_data_rows_top = max(len(category_data[cat]) for cat in CATEGORY_ROW_1) if CATEGORY_ROW_1 else 0
-START_ROW_ROW2 = START_ROW_ROW1 + 1 + max_data_rows_top + 2
 START_COL = 1
 
 # -------------------------------------
-# Helper Types and Functions
+# Helper Functions
 # -------------------------------------
-class KeyTypes(IntEnum):
-    NONE = 0
-    WOOD = 4
-    SILVER = 1
-    GOLD = 2
-    RED = 3
-
-def extract_num(s):
-    """Extracts numeric portion from filename for sorting."""
-    m = re.search(r'\d+', s)
-    return int(m.group()) if m else 0
-
 def clear_sheet_formatting_and_merges(worksheet):
+    """Clears all formatting and merges in the worksheet."""
     try:
         sheet_id = worksheet._properties["sheetId"]
         requests = [
-            {"repeatCell": {"range": {"sheetId": sheet_id},
-                            "cell": {"userEnteredFormat": {}},
-                            "fields": "userEnteredFormat"}},
-            {"unmergeCells": {"range": {"sheetId": sheet_id,
-                                        "startRowIndex": 0,
-                                        "endRowIndex": worksheet.row_count,
-                                        "startColumnIndex": 0,
-                                        "endColumnIndex": worksheet.col_count}}
-            }
+            {"repeatCell": {
+                "range": {"sheetId": sheet_id},
+                "cell": {"userEnteredFormat": {}},  # ✅ Reset formatting completely
+                "fields": "userEnteredFormat"
+            }},
+            {"unmergeCells": {
+                "range": {
+                    "sheetId": sheet_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": worksheet.row_count,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": worksheet.col_count
+                }
+            }}
         ]
         worksheet.spreadsheet.batch_update({"requests": requests})
     except Exception as e:
         debug_print(f"⚠️ DEBUG: Error clearing formatting: {e}")
 
+def process_file(filepath):
+    """Reads a level file and extracts relevant data."""
+    try:
+        with open(filepath, "rb") as f:
+            level = DFReader(f).read_level()
+        filename = os.path.basename(filepath)
+        level_name = level.variables["level_name"].value.decode("utf-8")
+        key_type_str = (KeyTypes(level.variables["key_get_type"].value).name
+                        if level.variables["key_get_type"].value in KeyTypes._value2member_map_
+                        else "UNKNOWN")
+        apples = sum(1 for _, _, entity in level.entities.values() if isinstance(entity, Apple))
+
+        debug_print(f"Processed file: {filename}, Level: {level_name}, Key Type: {key_type_str}, Apples: {apples}")  # ✅ Debug added
+        return filename, level_name, key_type_str, apples
+    except Exception as e:
+        debug_print(f"⚠️ DEBUG: Error processing file {filepath}: {e}")
+        return None
+
+def apply_formatting(worksheet, start_row, start_col, num_data_rows, num_cols, category_name):
+    """
+    Applies color formatting:
+      - Title row gets the category color.
+      - Header row gets a light gray background and bold text.
+      - Data rows are alternated with a light gray background.
+    """
+    try:
+        debug_print(f"Applying formatting for category: {category_name}")  # ✅ Debug statement
+
+        # Title row (row = start_row)
+        title_range = f"{gspread.utils.rowcol_to_a1(start_row, start_col)}:" \
+                      f"{gspread.utils.rowcol_to_a1(start_row, start_col+num_cols-1)}"
+        title_format = CellFormat(
+            backgroundColor=CATEGORY_COLORS.get(category_name, Color(1, 1, 1)),
+            textFormat=TextFormat(bold=True)
+        )
+        format_cell_range(worksheet, title_range, title_format)
+
+        # Header row (row = start_row+1)
+        header_range = f"{gspread.utils.rowcol_to_a1(start_row+1, start_col)}:" \
+                       f"{gspread.utils.rowcol_to_a1(start_row+1, start_col+num_cols-1)}"
+        header_format = CellFormat(
+            backgroundColor=HEADER_COLOR,
+            textFormat=TextFormat(bold=True)
+        )
+        format_cell_range(worksheet, header_range, header_format)
+
+        # Data rows: apply alternating background color (light gray on every other row)
+        for i in range(num_data_rows):
+            current_row = start_row + 2 + i
+            if i % 2 == 0:
+                data_range = f"{gspread.utils.rowcol_to_a1(current_row, start_col)}:" \
+                             f"{gspread.utils.rowcol_to_a1(current_row, start_col+num_cols-1)}"
+                row_format = CellFormat(backgroundColor=ALT_ROW_COLOR)
+                format_cell_range(worksheet, data_range, row_format)
+
+    except Exception as e:
+        debug_print(f"⚠️ DEBUG: Error applying formatting: {e}")
+
 def apply_outer_borders(worksheet, start_row, start_col, num_rows, num_cols, draw_left=True, draw_right=True):
+    """Applies outer borders to the specified range in the Google Sheet."""
     try:
         sheet_id = worksheet._properties["sheetId"]
         req = {
@@ -110,78 +165,12 @@ def apply_outer_borders(worksheet, start_row, start_col, num_rows, num_cols, dra
                 "left": {"style": "SOLID_THICK"} if draw_left else {"style": "NONE"},
                 "right": {"style": "SOLID_THICK"} if draw_right else {"style": "NONE"},
                 "innerHorizontal": {"style": "NONE"},
-                "innerVertical": {"style": "SOLID"}  # thin vertical inner borders
+                "innerVertical": {"style": "SOLID"}  # Thin vertical inner borders
             }
         }
         worksheet.spreadsheet.batch_update({"requests": [req]})
     except Exception as e:
         debug_print(f"⚠️ DEBUG: Error applying borders: {e}")
-
-def format_title_cell(worksheet, start_row, start_col, num_cols):
-    try:
-        worksheet.merge_cells(start_row, start_col, start_row, start_col + num_cols - 1)
-        title_format = CellFormat(textFormat=TextFormat(bold=True), horizontalAlignment='CENTER')
-        merged_range = f"{gspread.utils.rowcol_to_a1(start_row, start_col)}:" \
-                       f"{gspread.utils.rowcol_to_a1(start_row, start_col + num_cols - 1)}"
-        format_cell_range(worksheet, merged_range, title_format)
-    except Exception as e:
-        debug_print(f"⚠️ DEBUG: Error merging title cells: {e}")
-
-def process_file(filepath):
-    """Reads a level file and extracts relevant data."""
-    try:
-        with open(filepath, "rb") as f:
-            level = DFReader(f).read_level()
-        filename = os.path.basename(filepath)
-        level_name = level.variables["level_name"].value.decode("utf-8")
-        key_type_str = (KeyTypes(level.variables["key_get_type"].value).name
-                        if level.variables["key_get_type"].value in KeyTypes._value2member_map_
-                        else "UNKNOWN")
-        apples = sum(1 for _, _, entity in level.entities.values() if isinstance(entity, Apple))
-        return filename, level_name, key_type_str, apples
-    except Exception as e:
-        debug_print(f"⚠️ DEBUG: Error processing file {filepath}: {e}")
-        return None
-
-def apply_formatting(worksheet, start_row, start_col, num_data_rows, num_cols, category_name):
-    """
-    Applies color formatting:
-      - Title row gets the category color.
-      - Header row gets a light gray background.
-      - Data rows are alternated with a light gray background.
-    Note: num_data_rows is the count of data rows (excluding title and header).
-    """
-    try:
-        # Title row (row = start_row)
-        title_range = f"{gspread.utils.rowcol_to_a1(start_row, start_col)}:" \
-                      f"{gspread.utils.rowcol_to_a1(start_row, start_col+num_cols-1)}"
-        title_format = CellFormat(
-            backgroundColor=CATEGORY_COLORS.get(category_name, Color(1, 1, 1)),
-            textFormat=TextFormat(bold=True)
-        )
-        format_cell_range(worksheet, title_range, title_format)
-        
-        # Header row (row = start_row+1)
-        header_range = f"{gspread.utils.rowcol_to_a1(start_row+1, start_col)}:" \
-                       f"{gspread.utils.rowcol_to_a1(start_row+1, start_col+num_cols-1)}"
-        header_format = CellFormat(
-            backgroundColor=HEADER_COLOR,
-            textFormat=TextFormat(bold=True)
-        )
-        format_cell_range(worksheet, header_range, header_format)
-        
-        # Data rows: apply alternating background color.
-        for i in range(num_data_rows):
-            current_row = start_row + 2 + i
-            # For even-indexed data rows, apply ALT_ROW_COLOR.
-            if i % 2 == 0:
-                data_range = f"{gspread.utils.rowcol_to_a1(current_row, start_col)}:" \
-                             f"{gspread.utils.rowcol_to_a1(current_row, start_col+num_cols-1)}"
-                row_format = CellFormat(backgroundColor=ALT_ROW_COLOR)
-                format_cell_range(worksheet, data_range, row_format)
-                
-    except Exception as e:
-        debug_print(f"⚠️ DEBUG: Error applying formatting: {e}")
 
 # -------------------------------------
 # Main Execution (Parallel File Processing + Serial Google Sheets Updates)
@@ -192,7 +181,7 @@ if __name__ == '__main__':
     # Process files using multiprocessing.
     files = [f for f in os.listdir('.') if os.path.isfile(f)]
     debug_print(f"Found {len(files)} files.")
-    
+
     results = []
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
         future_to_file = {executor.submit(process_file, file): file for file in files}
@@ -201,14 +190,17 @@ if __name__ == '__main__':
             result = future.result()
             if result:
                 results.append(result)
-    
+
     # Assign files to categories.
     for filename, level_name, key_type_str, apples in results:
         for category in CATEGORY_ROW_1 + CATEGORY_ROW_2:
             if filename.startswith(category):
                 category_data[category].append((filename, level_name, key_type_str, apples))
                 break
-    
+
+    max_data_rows_top = max(len(category_data[cat]) for cat in CATEGORY_ROW_1) if CATEGORY_ROW_1 else 0
+    START_ROW_ROW2 = START_ROW_ROW1 + 1 + max_data_rows_top + 2
+
     # Initialize Google Sheets.
     creds = Credentials.from_service_account_file(
         "D:\\test\\key_checker\\nexus-461114-065a37b2b43e.json",
@@ -220,62 +212,48 @@ if __name__ == '__main__':
         worksheet = sheet.worksheet("Auto_Check")
     except gspread.exceptions.WorksheetNotFound:
         worksheet = sheet.add_worksheet(title="Auto_Check", rows="100", cols="30")
-    
+
+    # ✅ Clear all formatting before updating
     worksheet.clear()
     clear_sheet_formatting_and_merges(worksheet)
-    
-    # Now compute the sheet layout variables AFTER category_data is populated.
-    START_ROW_ROW1 = 1
-    max_data_rows_top = max(len(category_data[cat]) for cat in CATEGORY_ROW_1) if CATEGORY_ROW_1 else 0
-    START_ROW_ROW2 = START_ROW_ROW1 + 1 + max_data_rows_top + 2
-    START_COL = 1
-    
+
     # Update Google Sheets with a progress bar.
     progress_bar_sheets = tqdm(CATEGORY_ROW_1 + CATEGORY_ROW_2, desc="Updating Google Sheets",
-                               unit="category", dynamic_ncols=True)
+                              unit="category", dynamic_ncols=True)
     for category in progress_bar_sheets:
-        if category in CATEGORY_ROW_1:
-            current_row = START_ROW_ROW1
-            col_index = CATEGORY_ROW_1.index(category)
-        else:
-            current_row = START_ROW_ROW2
-            col_index = CATEGORY_ROW_2.index(category)
+        current_row = START_ROW_ROW1 if category in CATEGORY_ROW_1 else START_ROW_ROW2
+        col_index = CATEGORY_ROW_1.index(category) if category in CATEGORY_ROW_1 else CATEGORY_ROW_2.index(category)
         col_offset = START_COL + col_index * (TABLE_WIDTH + COLUMN_SPACING)
-        
+
         progress_bar_sheets.set_postfix(category=category)
-        
-        # Write the category title cell and format it.
+
         worksheet.update_cell(current_row, col_offset, f"{category} Levels")
-        format_title_cell(worksheet, current_row, col_offset, TABLE_WIDTH)
-        
-        # Batch update the header row.
+
         headers = ["Filename", "Level Name", "Key Type", "Apples"]
-        header_range = f"{gspread.utils.rowcol_to_a1(current_row+1, col_offset)}:" \
-                       f"{gspread.utils.rowcol_to_a1(current_row+1, col_offset+len(headers)-1)}"
-        worksheet.update(values=[headers], range_name=header_range)
-        
-        # Sort and prepare data rows.
-        data = category_data[category]
-        data.sort(key=lambda x: extract_num(x[0]))
-        rows_to_add = [list(row[:4]) for row in data]
-        debug_print(f"Sending data for {category}: {rows_to_add}")
-        
+        worksheet.update(values=[headers], 
+                        range_name=f"{gspread.utils.rowcol_to_a1(current_row+1, col_offset)}")
+
+        debug_print(f"🚀 Data for {category}: {category_data[category]}")  # ✅ Debug before writing rows
+
+        rows_to_add = [list(row[:4]) for row in category_data[category]]
+        debug_print(f"Writing {len(rows_to_add)} rows for {category}")  # ✅ Debug row count
+
         if rows_to_add:
-            start_a1 = gspread.utils.rowcol_to_a1(current_row + 2, col_offset)
-            end_a1 = gspread.utils.rowcol_to_a1(current_row + 1 + len(rows_to_add), 
-                                                col_offset + TABLE_WIDTH - 1)
-            worksheet.update(values=rows_to_add, range_name=f"{start_a1}:{end_a1}")
-        
-        # Apply outer borders.
-        apply_outer_borders(worksheet, current_row, col_offset,
-                            len(rows_to_add) + 2, TABLE_WIDTH)
-        
-        # Apply color formatting.
-        num_data_rows = len(rows_to_add)
-        apply_formatting(worksheet, current_row, col_offset, num_data_rows,
-                         TABLE_WIDTH, category)
-        
-        # Delay to mitigate write quota issues.
+            worksheet.update(values=rows_to_add,
+                            range_name=f"{gspread.utils.rowcol_to_a1(current_row + 2, col_offset)}")
+
+        # ✅ Apply formatting for ALL categories (not just Ocean)
+        apply_formatting(worksheet, current_row, col_offset, len(rows_to_add), TABLE_WIDTH, category)
+
+        # ✅ Apply borders for ALL categories (not just Ocean)
+        apply_outer_borders(worksheet, current_row, col_offset, len(rows_to_add) + 2, TABLE_WIDTH)
+
+        # ✅ Explicitly ensure Ocean formatting and borders are applied
+        if category == "Ocean":
+            debug_print("⚠️ Manually ensuring Ocean borders and formatting are applied")
+            apply_outer_borders(worksheet, current_row, col_offset, len(rows_to_add) + 2, TABLE_WIDTH)
+            apply_formatting(worksheet, current_row, col_offset, len(rows_to_add), TABLE_WIDTH, category)
+            
         time.sleep(1)
-    
-    debug_print("Script completed successfully!")
+
+    debug_print("🎉 Script completed successfully!")
